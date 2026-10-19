@@ -1,10 +1,16 @@
 // Market simulation: each port holds a price and stock per good.
 // Prices drift back toward a port-specific base, get pushed by random shortages and gluts,
-// and react to the player's own buying and selling.
+// and react to the player's own buying and selling in two ways: an instant per-unit move
+// (elastic) that fades in a couple of weeks, and a lasting "pressure" that shifts the
+// port's base price and fades over a couple of months. Pressure is what stops a single
+// two-port shuttle from paying forever: keep draining one port and flooding another and
+// the margin closes, so traders have to rotate routes.
 (function () {
   const rand = (a, b) => a + Math.random() * (b - a);
   const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
   const SELL_SPREAD = 0.9;
+  const PRESSURE = 0.6;         // lasting price shift per 'depth' units traded
+  const PRESSURE_DECAY = 0.99; // per day: half-life of about 69 days
 
   function stockCap(port, good, idx) {
     const scale = Math.max(0.25, 1 - idx * 0.08);
@@ -38,7 +44,8 @@
       for (const g of TW.GOODS) {
         const e = m[g.id];
         if (e.until && state.day >= e.until) { e.mult = 1; e.until = 0; e.kind = null; }
-        const target = e.base * e.mult;
+        e.press = (e.press || 0) * PRESSURE_DECAY;
+        const target = e.base * e.mult * (1 + e.press);
         e.price += (target - e.price) * 0.05 + gauss() * (g.max - g.min) * 0.02;
         e.price = Math.min(g.max * 1.6, Math.max(g.min * 0.5, e.price));
         e.stock += (e.cap * (e.kind === 'glut' ? 2 : 1) - e.stock) * 0.06;
@@ -91,11 +98,13 @@
   TW.applyBuy = function (state, portId, goodId, qty) {
     const q = TW.quoteBuy(state, portId, goodId, qty), e = state.market[portId][goodId];
     e.price = q.after; e.stock -= qty;
+    e.press = Math.min(0.9, (e.press || 0) + qty / TW.GOOD[goodId].depth * PRESSURE);
     return q.total;
   };
   TW.applySell = function (state, portId, goodId, qty) {
     const q = TW.quoteSell(state, portId, goodId, qty), e = state.market[portId][goodId];
     e.price = q.after; e.stock += qty * 0.5;
+    e.press = Math.max(-0.5, (e.press || 0) - qty / TW.GOOD[goodId].depth * PRESSURE);
     return q.total;
   };
 

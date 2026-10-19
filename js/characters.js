@@ -21,6 +21,7 @@
         'What does {port} crave? Mostly {wants}. Bring those and we’ll both smile.',
         'What do we have too much of here? {makes}. Take it off my hands, cheaply.',
         'Big orders move my prices, Captain. Spread your trades around.',
+        'Flood this market again and again and the price stays low for months. Merchants remember.',
         'Rich goods need rich captains. Grow your purse and finer cargo will open up to you.',
       ],
       buy: ['A sound purchase. Probably.', 'Sold! Don’t let the pirates have it.', 'Pleasure doing business. Mostly mine.'],
@@ -56,7 +57,7 @@
         c => c.guns === 0 ? 'No cannons? Brave. Or foolish. Usually both.' : null,
       ],
       idle: [
-        'Every cannon costs you five crates of cargo. Choose: profit or bang.',
+        'Every cannon costs you five crates of cargo, and a gunner to feed. Choose: profit or bang.',
         'A faster ship outruns trouble. A bigger ship carries more of it. Pick.',
         'Chain shot cuts rigging. Fire pots cut morale. Powder kegs cut everything.',
         'New hulls come down the slipway every month. Come back and look.',
@@ -77,7 +78,8 @@
         c => c.debt > 0 ? 'I see you’ve visited the moneylender. We prefer not to discuss that here.' : null,
       ],
       idle: [
-        'Roughly ten percent a year, Captain. Patience is the most profitable cargo.',
+        'About twenty percent a year, Captain. Patience is the most profitable cargo.',
+        'Leave gold with us and your crew’s wages come out of it if your purse runs dry.',
         'Interest is paid at the start of every month.',
       ],
       deposit: ['Recorded, stamped and filed. Splendid.', 'Ah, the sweet sound of a ledger balancing.'],
@@ -88,6 +90,8 @@
     lender: {
       building: 'Moneylender',
       greet: [
+        c => c.overdue ? 'Your note is overdue, Captain. My collectors have your description. Pay, and they can forget it.' : null,
+        c => c.debt > 0 && !c.overdue && c.dueIn <= 14 ? 'Your loan falls due in {dueIn} days, Captain. I do hope the winds are kind.' : null,
         c => c.debt > 0 && c.debt <= c.worth * 0.5 ? 'You owe me {debt}, Captain. No rush. Well, some rush.' : null,
         c => c.debt > 0 && c.debt > c.worth * 0.5 ? '{debt} gold, Captain. My associates are beginning to remember your face.' : null,
         c => c.worth > 1000000 ? 'So successful! Surely you don’t need me… but everyone needs me eventually.' : null,
@@ -95,11 +99,12 @@
       idle: [
         'Borrow to buy cargo, sell it dear, pay me back. Easy. Unless…',
         'Interest is added at the start of every month. Every month.',
+        'Every loan is due in ninety days. After that the rate climbs, and so do my collectors.',
       ],
       borrow: ['Signed in ink. Mine, of course, is permanent.', 'Spend it wisely. Or quickly. I prefer quickly.'],
       repay: ['A payment! You have made me very… mildly pleased.'],
       repayAll: ['All of it? How disappointing. Do come back soon.'],
-      refused: ['No. Even I have limits, Captain.'],
+      refused: ['No. Even I have limits, Captain.', c => c.overdue ? 'Not another copper until your overdue note is settled.' : null],
     },
 
     harbor: {

@@ -58,11 +58,12 @@ It keeps the core of the classics: **buy low, sell high, and survive the pirates
 
 - 🏝️ **20 real Caribbean ports,** each with a hand-painted city view and its own architecture, from Spanish Havana to Danish St. Thomas.
 - 🎭 **95 unique keepers,** one in every building of every port, each with their own portrait, personality and lines. Meet a Maya cotton trader in Mérida, a Danish innkeeper in St. Thomas and a retired pirate lending money in Port Royal. They react to your debts, your cargo and the state of your hull.
-- 📈 **A living economy.** Every port makes some goods cheaply and pays dearly for others. Prices drift daily, shortages and gluts come and go, and your own big trades move the market.
+- 📈 **A living economy.** Every port makes some goods cheaply and pays dearly for others. Prices drift daily, shortages and gluts come and go, and your trading leaves a lasting mark, so the same route can't be milked forever.
 - 🗺️ **Real sea lanes.** Routes are found with A* pathfinding around coastlines traced from real geography.
 - ⚔️ **Real-time naval combat** with Chain Shot, Fire Pots and Powder Kegs. Or flee, if you're outgunned.
 - 🚢 **Seven ships,** from sloop to man-o-war. Every cannon costs cargo space, so choose between firepower and profit.
-- 💰 **Bank, moneylender, sea charts and rumors.** Interest is your friend at the bank and your enemy at the moneylender (10% a month!).
+- 💰 **Bank, moneylender, sea charts and rumors.** The bank pays about 20% a year and covers wages when your purse is empty; the moneylender charges 10% a month and sends collectors after overdue loans.
+- ⚓ **Running costs.** Crews draw daily wages and provisions, so slow routes and oversized gun decks cost real money.
 - 🏆 **Career mode** (10 years to make your fortune) or **Endless.** Progress autosaves in your browser.
 
 ## Play locally

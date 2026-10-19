@@ -7,6 +7,11 @@
   const gold = n => `<span class="gold">${fmt(n)}</span>`;
   const SAVE_KEY = 'tradewaters-save-v1';
   const CAREER_DAYS = 3650;
+  const BANK_RATE = 0.015;     // per month, about 20% a year
+  const LOAN_RATE = 0.10;      // per month
+  const OVERDUE_RATE = 0.15;   // per month once a loan is past due
+  const LOAN_TERM = 90;        // days until a loan falls due
+  const COLLECTION_FEE = 0.1;  // added when the moneylender's collectors come calling
   const START_PORTS = ['portroyal', 'havana', 'barbados', 'curacao', 'cartagena', 'stthomas'];
   const MILESTONES = [20000, 50000, 100000, 200000, 400000, 700000, 1000000, 1500000, 2500000, 4000000];
 
@@ -85,12 +90,45 @@
     const before = monthIndex(S.day);
     S.day++;
     TW.tickMarket(S);
+    payUpkeep();
+    if (S.debt > 0 && S.loanDue && S.day === S.loanDue) {
+      log('Your loan is now overdue. The moneylender’s interest rises to 15% a month.');
+      toast('⚠ Your loan is overdue!', 'bad');
+    }
     if (monthIndex(S.day) !== before) {
-      if (S.bank > 0) { const i = Math.round(S.bank * 0.008); S.bank += i; }
-      if (S.debt > 0) { const i = Math.round(S.debt * 0.1); S.debt += i; log(`The moneylender adds ${fmt(i)} gold of interest to your debt.`); }
+      if (S.bank > 0) { const i = Math.round(S.bank * BANK_RATE); S.bank += i; log(`The bank paid ${fmt(i)} gold in interest.`); }
+      if (S.debt > 0) {
+        const i = Math.round(S.debt * (loanOverdue() ? OVERDUE_RATE : LOAN_RATE)); S.debt += i;
+        log(`The moneylender adds ${fmt(i)} gold of interest to your debt.`);
+      }
+      if (S.wages) { log(`Paid ${fmt(S.wages)} gold in wages and provisions last month.`); S.wages = 0; }
       refreshOffers();
     }
     S.peakWorth = Math.max(S.peakWorth, worth());
+  }
+
+  // Crew wages and provisions come out of cash first, then the bank. If both are empty
+  // the crew grumbles and goes unpaid (once a month in the log).
+  function payUpkeep() {
+    let owed = TW.upkeep(shipDef(), S.ship.guns);
+    const fromCash = Math.min(S.cash, owed); S.cash -= fromCash; owed -= fromCash;
+    const fromBank = Math.min(S.bank, owed); S.bank -= fromBank; owed -= fromBank;
+    S.wages = (S.wages || 0) + fromCash + fromBank;
+    if (owed > 0 && S.unpaidMonth !== monthIndex(S.day)) { S.unpaidMonth = monthIndex(S.day); log('No gold for wages. The crew grumbles but sails on.'); }
+  }
+  const loanOverdue = () => S.debt > 0 && S.loanDue && S.day >= S.loanDue;
+  const loanLimit = () => (loanOverdue() ? 0 : Math.max(0, Math.max(5000, worth()) - S.debt));
+
+  // Overdue debtors find collectors waiting in any port with a moneylender.
+  function collectDebt() {
+    if (!loanOverdue() || !port().svc.includes('L')) return null;
+    const fee = Math.round(S.debt * COLLECTION_FEE), take = Math.min(S.cash, S.debt + fee);
+    if (take <= 0) return null;
+    S.cash -= take;
+    S.debt = Math.max(0, S.debt + fee - take);
+    if (!S.debt) S.loanDue = 0;
+    log(`Debt collectors seized ${fmt(take)} gold on the quay in ${port().name}.`);
+    return { take, fee, left: S.debt };
   }
 
   function checkMilestones() {
@@ -126,7 +164,7 @@
       <div class="stat"><label>Date</label>${dateStr(S.day)}<small>${left}</small></div>
       <div class="stat"><label>Cash</label>${gold(S.cash)}</div>
       <div class="stat"><label>Bank</label>${gold(S.bank)}</div>
-      <div class="stat ${S.debt ? 'bad' : ''}"><label>Debt</label>${gold(S.debt)}</div>
+      <div class="stat ${S.debt ? 'bad' : ''}"><label>Debt</label>${gold(S.debt)}${S.debt && S.loanDue ? `<small>${loanOverdue() ? 'overdue!' : `due in ${S.loanDue - S.day}d`}</small>` : ''}</div>
       <div class="stat"><label>Net worth</label>${gold(w)}<small>${rankOf(w)}</small></div>
       <div class="hud-btns">
         <button data-act="toggle-sfx" title="Sound effects">${TW.audioSettings.sfx ? '🔊' : '🔈'}</button>
@@ -291,6 +329,7 @@
       cargo: cargoQty(), hullPct: S.ship.hull / d.hull, loadPct: usedSpace() / d.cargo,
       threat: D < 6 ? 0 : D < 14 ? 1 : D < 26 ? 2 : 3,
       uncharted: S.known.length < TW.PORTS.length, firstVisit: !(S.visited || {})[p.id],
+      overdue: loanOverdue(), dueIn: S.loanDue ? S.loanDue - S.day : 0,
       wants: list(p.wants), makes: list(p.makes.filter(id => id !== 'gems')),
     };
   }
@@ -365,6 +404,7 @@
       <div class="bar cargo"><span style="width:${Math.min(100, 100 * used / d.cargo)}%"></span><em>Hold ${used}/${d.cargo}</em></div>
       <div class="kv"><span>Cannons</span><b>${S.ship.guns}/${d.guns}${S.ship.broken ? ` <i class="bad">(${S.ship.broken} broken)</i>` : ''}</b></div>
       <div class="kv"><span>Special ammo</span><b>⛓${S.ammo.chain} · 🔥${S.ammo.fire} · 💥${S.ammo.keg}</b></div>
+      <div class="kv"><span>Wages &amp; provisions</span><b>${fmt(TW.upkeep(d, S.ship.guns))} g/day</b></div>
       <div class="cargo-list">${cargo.length ? cargo.map(([id, c]) => `<div>${TW.GOOD[id].icon} ${TW.GOOD[id].name} <b>${c.qty}</b> <small>@${fmt(c.cost)}</small></div>`).join('') : '<small>The hold is empty.</small>'}</div>
     </div>`;
   }
@@ -503,7 +543,7 @@
             const s = TW.SHIP[o.id], locked = S.peakWorth < s.unlock;
             return `<div class="ship-offer ${locked ? 'locked' : ''}">
               <canvas width="160" height="90" data-ship="${o.id}"></canvas>
-              <div><b>${s.name}</b> · ${gold(o.price)}<br><small>Hull ${s.hull} · Hold ${s.cargo} · Cannons ${s.guns} · Speed ${s.speed}</small><br>
+              <div><b>${s.name}</b> · ${gold(o.price)}<br><small>Hull ${s.hull} · Hold ${s.cargo} · Cannons ${s.guns} · Speed ${s.speed} · Upkeep from ${fmt(TW.upkeep(s, 0))} g/day</small><br>
               ${locked ? `<small class="bad">Shipwrights won't sell to you until ${fmt(s.unlock)} net worth.</small>` :
                 `<button data-act="buyship" data-ship="${o.id}" data-price="${o.price}">Buy for ${fmt(Math.max(0, o.price - tradeIn))} g after trade-in</button>`}</div></div>`;
           }).join('') : '<p>No ships on the slipway this month.</p>'}
@@ -517,17 +557,20 @@
 
   function renderBank(el) {
     el.innerHTML = `<h2>Bank</h2>
-      <p>Deposits are safe from pirates and earn about 10% a year. Your balance: ${gold(S.bank)}</p>
+      <p>Deposits are safe from pirates and earn <b>1.5% a month</b> (about 20% a year). Wages are drawn from here if your purse runs dry. Your balance: ${gold(S.bank)}</p>
       <div class="row"><input type="number" id="amt" min="0" placeholder="amount">
       <button data-act="deposit">Deposit</button><button data-act="withdraw">Withdraw</button>
       <button class="ghost" data-act="deposit-all">Deposit all</button><button class="ghost" data-act="withdraw-all">Withdraw all</button></div>
       <p class="hint">You can only use banks in ports that have one.</p>`;
   }
   function renderLender(el) {
-    const max = Math.max(0, Math.max(5000, 2 * worth()) - S.debt);
+    const max = loanLimit(), overdue = loanOverdue();
+    const due = S.debt > 0 && S.loanDue ? (overdue ? `<b class="bad">Overdue since ${dateStr(S.loanDue)}.</b> Interest is now 15% a month and collectors will meet you in any port with a moneylender.`
+      : `Due in <b>${S.loanDue - S.day} days</b> (${dateStr(S.loanDue)}).`) : '';
     el.innerHTML = `<h2>Moneylender</h2>
-      <p>The rate is a ruinous <b>10% per month</b>.</p>
-      <p>Current debt: ${gold(S.debt)} · You may borrow up to ${gold(max)}</p>
+      <p>Loans cost <b>10% a month</b>, up to your net worth, and fall due ${LOAN_TERM} days after you first borrow.</p>
+      <p>Current debt: ${gold(S.debt)} ${due}</p>
+      <p>${overdue ? 'No new loans until you settle up.' : `You may borrow up to ${gold(max)}.`}</p>
       <div class="row"><input type="number" id="amt" min="0" placeholder="amount">
       <button data-act="borrow">Borrow</button><button data-act="repay">Repay</button><button class="ghost" data-act="repay-all">Repay all</button></div>`;
   }
@@ -613,23 +656,25 @@
     if (S.ship.hull < d.hull * 0.5) warn.push('Your hull is badly damaged.');
     if (!S.ship.guns) warn.push('You carry no cannons. Pirates will find you easy prey.');
     modal(`<h2>Sail to ${p.name}?</h2>
-      <p>The voyage should take about <b>${days} days</b>.</p>
+      <p>The voyage should take about <b>${days} days</b>, costing about ${gold(days * TW.upkeep(d, S.ship.guns))} in wages and provisions.</p>
       ${warn.map(w => `<p class="bad">⚠ ${w}</p>`).join('')}`,
       [['Weigh anchor!', () => startVoyage(p.id, r, days), 'big'], ['Not yet', null, 'ghost']]);
   }
 
   function dangerLevel() {
     const w = Math.max(1, worth());
-    return Math.max(0, Math.min(48, Math.round(4 * Math.log2(w / 4000)) + Math.floor(S.day / 365)));
+    // Mostly driven by wealth; the sea also grows a little more dangerous every two years.
+    return Math.max(0, Math.min(48, Math.round(4 * Math.log2(w / 4000)) + Math.floor(S.day / 730)));
   }
 
   function makeFleet() {
     const D = dangerLevel();
-    const n = 1 + (Math.random() < D / 30) + (Math.random() < D / 50) + (Math.random() < D / 75);
+    // Pirates strike less often than they used to, but in bigger fleets.
+    const n = 1 + (Math.random() < D / 24) + (Math.random() < D / 40) + (Math.random() < D / 60);
     const pool = TW.ENEMIES.filter(e => e.tier <= D);
     const fleet = [];
     for (let i = 0; i < n; i++) {
-      const weights = pool.map(e => 1 + 3 * e.tier / (D + 1));
+      const weights = pool.map(e => 1 + 1.5 * e.tier / (D + 1));
       let k = Math.random() * weights.reduce((a, b) => a + b), j = 0;
       while ((k -= weights[j]) > 0) j++;
       fleet.push({ ...pool[Math.min(j, pool.length - 1)] });
@@ -642,7 +687,8 @@
     const scale = Math.max(0.5, Math.min(1.6, route.len / 350));
     const events = [];
     if (Math.random() < 0.12 * scale) events.push({ t: rand(0.2, 0.8), kind: 'storm' });
-    const pirateChance = 0.33 * scale * (cargoQty() ? 1 : 0.6);
+    // Fewer but tougher encounters; a fuller hold draws more attention.
+    const pirateChance = 0.18 * scale * (cargoQty() ? 0.75 + 0.5 * usedSpace() / shipDef().cargo : 0.5);
     if (Math.random() < pirateChance) events.push({ t: rand(0.25, 0.85), kind: 'pirates' });
     if (Math.random() < 0.05) events.push({ t: rand(0.2, 0.8), kind: 'flotsam' });
     if (TW._debug.nextEvents) { TW._debug.nextEvents.forEach(kind => events.push({ t: rand(0.2, 0.8), kind })); TW._debug.nextEvents = null; }
@@ -903,7 +949,11 @@
     if (S.mode === 'career' && S.day >= CAREER_DAYS) return go('end');
     view.place = 'city'; view.speech = null;
     TW.sfx('bell');
+    const collected = collectDebt();
     go('port');
+    if (collected) modal(`<h2>Debt collectors!</h2>
+      <p>Hard-faced men are waiting on the quay with your overdue note. They take <b>${gold(collected.take)}</b>, including a ${fmt(collected.fee)} gold collection fee.</p>
+      ${collected.left ? `<p class="bad">You still owe ${gold(collected.left)}, and it keeps growing at 15% a month.</p>` : '<p>Your debt is settled.</p>'}`, [['Grumble and pay', null, 'big']]);
   }
 
   // ----- End -----
@@ -948,7 +998,11 @@
     'begin': () => openGate(),
     'new': () => go('newgame'),
     'title': () => go('title'),
-    'continue': () => { S = loadSave(); if (!S) return go('title'); view.place = 'city'; view.speech = null; go('port'); },
+    'continue': () => {
+      S = loadSave(); if (!S) return go('title');
+      if (S.debt > 0 && !S.loanDue) S.loanDue = S.day + LOAN_TERM;   // saves from before loans had due dates
+      view.place = 'city'; view.speech = null; go('port');
+    },
     'start': () => {
       newGame($('#ng-name').value.trim(), $('#ng-mode').value, $('#ng-home').value);
       view.place = 'city'; view.speech = null; go('port');
@@ -957,10 +1011,10 @@
       // Each section pairs a gameplay screenshot with a short tip; click a picture to enlarge it.
       const rows = [
         ['city', 'Explore the port', 'Every port has its own harbor. Click a building on the quay to step inside and meet its keeper. They have opinions about your ship, your debts and your cargo.'],
-        ['market', 'Trade', 'Each port makes some goods cheaply and pays dearly for others. Buy where prices are <span class="cheap">green</span> and sell where they are <span class="dear">red</span>. Big trades move the price, so spread them across ports.'],
+        ['market', 'Trade', 'Each port makes some goods cheaply and pays dearly for others. Buy where prices are <span class="cheap">green</span> and sell where they are <span class="dear">red</span>. Big trades move the price, and ports remember: run the same route again and again and its margin shrinks for weeks, so rotate your routes.'],
         ['map', 'Sail', 'Visit the Harbor Office or press Set Sail, then pick a port on the chart. Hover a port to see the prices you saw there last.'],
         ['combat', 'Survive', 'Pirates and storms prowl the sea lanes. In battle, click an enemy to target it. Your cannons fire on their own, and special ammo can turn the tide. Outgunned? Flee.'],
-        ['shipyard', 'Grow', 'Rising net worth (cash + bank + cargo \u2212 debt) unlocks richer goods, new charts and bigger ships. Cannons cost hold space, so balance firepower against cargo. The moneylender charges 10% a month!'],
+        ['shipyard', 'Grow', 'Rising net worth (cash + bank + cargo \u2212 debt) unlocks richer goods, new charts and bigger ships. Cannons cost hold space, so balance firepower against cargo. Every day at sea costs wages and provisions, and the moneylender charges 10% a month with loans due in 90 days.'],
       ];
       modal(`<h2>How to Play</h2>${rows.map(([img, title, text]) => `
         <div class="help-row">
@@ -1061,13 +1115,14 @@
     'deposit-all': () => { const a = S.cash; S.bank += S.cash; S.cash = 0; if (a) log(`Deposited ${fmt(a)} gold in the bank.`); speak(a ? 'deposit' : 'nothing'); save(); render(); },
     'withdraw-all': () => { const a = S.bank; S.cash += S.bank; S.bank = 0; if (a) log(`Withdrew ${fmt(a)} gold from the bank.`); speak(a ? 'withdraw' : 'nothing'); save(); render(); },
     'borrow': () => {
-      const max = Math.max(0, Math.max(5000, 2 * worth()) - S.debt);
+      const max = loanLimit();
       const a = Math.min(amount(), max);
       if (!a) { if (max) return toast('Enter an amount.', 'bad'); speak('refused'); return render(); }
-      S.cash += a; S.debt += a; log(`Borrowed ${fmt(a)} gold from the moneylender.`); speak('borrow'); save(); render();
+      if (!S.debt) S.loanDue = S.day + LOAN_TERM;
+      S.cash += a; S.debt += a; log(`Borrowed ${fmt(a)} gold from the moneylender, due ${dateStr(S.loanDue)}.`); speak('borrow'); save(); render();
     },
-    'repay': () => { const a = Math.min(amount(), S.cash, S.debt); S.cash -= a; S.debt -= a; if (a) { log(`Repaid ${fmt(a)} gold to the moneylender.`); speak(S.debt ? 'repay' : 'repayAll'); } save(); render(); },
-    'repay-all': () => { const a = Math.min(S.cash, S.debt); S.cash -= a; S.debt -= a; if (!S.debt) { log('Paid off the moneylender in full.'); speak('repayAll'); } save(); render(); },
+    'repay': () => { const a = Math.min(amount(), S.cash, S.debt); S.cash -= a; S.debt -= a; if (!S.debt) S.loanDue = 0; if (a) { log(`Repaid ${fmt(a)} gold to the moneylender.`); speak(S.debt ? 'repay' : 'repayAll'); } save(); render(); },
+    'repay-all': () => { const a = Math.min(S.cash, S.debt); S.cash -= a; S.debt -= a; if (!S.debt) { S.loanDue = 0; log('Paid off the moneylender in full.'); speak('repayAll'); } save(); render(); },
     'special': (b) => TW.Combat.special(b.dataset.ammo),
     'flee': () => TW.Combat.flee(),
   };
@@ -1113,7 +1168,7 @@
   };
   // Exposed for debugging and automated checks.
   // Set TW._debug.nextEvents = ['pirates', 'storm'] to force events on the next voyage.
-  TW._debug = { get state() { return S; }, set state(v) { S = v; }, go, passDay, makeFleet, worth, nextEvents: null,
+  TW._debug = { get state() { return S; }, set state(v) { S = v; }, go, passDay, makeFleet, worth, arrive, nextEvents: null,
     // Skip straight to the post-battle plunder screen against a freshly rolled pirate fleet.
     winBattle() {
       const fleet = makeFleet(), before = { hull: S.ship.hull, broken: S.ship.broken, ammo: { ...S.ammo }, worth: worth(), shotUsed: 0 };

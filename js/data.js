@@ -3,17 +3,19 @@
 window.TW = window.TW || {};
 
 TW.GOODS = [
-  { id: 'fish',    name: 'Fish',    min: 8,    max: 60,    unlock: 0,       elastic: 0.003, icon: '🐟' },
-  { id: 'cotton',  name: 'Cotton',  min: 15,   max: 110,   unlock: 0,       elastic: 0.003, icon: '☁️' },
-  { id: 'timber',  name: 'Timber',  min: 40,   max: 220,   unlock: 0,       elastic: 0.003, icon: '🪵' },
-  { id: 'cocoa',   name: 'Cocoa',   min: 120,  max: 520,   unlock: 0,       elastic: 0.0028, icon: '🫘' },
-  { id: 'sugar',   name: 'Sugar',   min: 250,  max: 900,   unlock: 0,       elastic: 0.0026, icon: '🧂' },
-  { id: 'muskets', name: 'Muskets', min: 800,  max: 2600,  unlock: 40000,   elastic: 0.0022, icon: '🔫' },
-  { id: 'cloth',   name: 'Cloth',   min: 1500, max: 5000,  unlock: 120000,  elastic: 0.002, icon: '🧵' },
-  { id: 'tobacco', name: 'Tobacco', min: 2500, max: 7000,  unlock: 350000,  elastic: 0.0018, icon: '🍂' },
-  { id: 'rum',     name: 'Rum',     min: 4000, max: 9500,  unlock: 900000,  elastic: 0.0016, icon: '🍾' },
-  { id: 'gems',    name: 'Gems',    min: 9000, max: 22000, unlock: 2000000, elastic: 0.004, icon: '💎' },
+  { id: 'fish',    name: 'Fish',    min: 8,    max: 60,    unlock: 0,       elastic: 0.003, depth: 900, icon: '🐟' },
+  { id: 'cotton',  name: 'Cotton',  min: 15,   max: 110,   unlock: 0,       elastic: 0.003, depth: 900, icon: '☁️' },
+  { id: 'timber',  name: 'Timber',  min: 40,   max: 220,   unlock: 0,       elastic: 0.003, depth: 700, icon: '🪵' },
+  { id: 'cocoa',   name: 'Cocoa',   min: 120,  max: 520,   unlock: 0,       elastic: 0.0028, depth: 550, icon: '🫘' },
+  { id: 'sugar',   name: 'Sugar',   min: 250,  max: 900,   unlock: 0,       elastic: 0.0026, depth: 500, icon: '🧂' },
+  { id: 'muskets', name: 'Muskets', min: 800,  max: 2600,  unlock: 40000,   elastic: 0.0022, depth: 350, icon: '🔫' },
+  { id: 'cloth',   name: 'Cloth',   min: 1500, max: 5000,  unlock: 120000,  elastic: 0.002, depth: 280, icon: '🧵' },
+  { id: 'tobacco', name: 'Tobacco', min: 2500, max: 7000,  unlock: 350000,  elastic: 0.0018, depth: 220, icon: '🍂' },
+  { id: 'rum',     name: 'Rum',     min: 4000, max: 9500,  unlock: 900000,  elastic: 0.0016, depth: 180, icon: '🍾' },
+  { id: 'gems',    name: 'Gems',    min: 9000, max: 22000, unlock: 2000000, elastic: 0.004, depth: 50, icon: '💎' },
 ];
+// depth: how many units a port's market absorbs before your trading leaves a lasting mark
+// on its price (see economy.js). Rarer goods have thinner markets.
 TW.GOOD = Object.fromEntries(TW.GOODS.map(g => [g.id, g]));
 
 // services: B = bank, L = moneylender, S = shipyard. Every port has a market and tavern.
@@ -47,23 +49,25 @@ TW.SHIPS = [
   { id: 'schooner',   name: 'Schooner',   price: 48000,   hull: 60,  cargo: 130, guns: 10, reload: 2.3, speed: 50, unlock: 30000 },
   { id: 'brigantine', name: 'Brigantine', price: 90000,   hull: 100, cargo: 200, guns: 15, reload: 2.1, speed: 46, unlock: 80000 },
   { id: 'barque',     name: 'Barque',     price: 240000,  hull: 180, cargo: 270, guns: 20, reload: 1.9, speed: 42, unlock: 250000 },
-  { id: 'galleon',    name: 'Galleon',    price: 950000,  hull: 250, cargo: 360, guns: 22, reload: 1.8, speed: 38, unlock: 800000 },
-  { id: 'frigate',    name: 'Frigate',    price: 2100000, hull: 300, cargo: 400, guns: 28, reload: 1.6, speed: 48, unlock: 2000000 },
-  { id: 'manowar',    name: 'Man-o-War',  price: 2600000, hull: 400, cargo: 280, guns: 36, reload: 1.5, speed: 42, unlock: 3000000 },
+  { id: 'galleon',    name: 'Galleon',    price: 900000,  hull: 300, cargo: 480, guns: 24, reload: 1.8, speed: 38, unlock: 700000 },
+  { id: 'frigate',    name: 'Frigate',    price: 2100000, hull: 300, cargo: 360, guns: 30, reload: 1.6, speed: 50, unlock: 2000000 },
+  { id: 'manowar',    name: 'Man-o-War',  price: 2600000, hull: 450, cargo: 300, guns: 40, reload: 1.4, speed: 40, unlock: 3000000 },
 ];
 TW.SHIP = Object.fromEntries(TW.SHIPS.map(s => [s.id, s]));
+// Daily wages and provisions: bigger ships need bigger crews, and every cannon needs gunners.
+TW.upkeep = (ship, guns) => Math.round(ship.price * 0.0004 + guns * 3);
 TW.GUN_SPACE = 5;
 TW.CANNON_PRICE = 1500;
 
 // Enemy pirate ships. tier = minimum danger level before they appear.
 TW.ENEMIES = [
-  { id: 'sloop',      name: 'Pirate Sloop',     hull: 8,   guns: 2,  reload: 2.8, tier: 0,  booty: 1500,   look: 'sloop' },
-  { id: 'schooner',   name: 'Pirate Schooner',  hull: 22,  guns: 3,  reload: 2.6, tier: 5,  booty: 4000,   look: 'schooner' },
-  { id: 'brigantine', name: 'Corsair Brig',     hull: 45,  guns: 5,  reload: 2.4, tier: 10, booty: 9000,   look: 'brigantine' },
-  { id: 'barque',     name: 'Raider Barque',    hull: 80,  guns: 8,  reload: 2.2, tier: 17, booty: 22000,  look: 'barque' },
-  { id: 'galleon',    name: 'Black Galleon',    hull: 110, guns: 12, reload: 2.1, tier: 24, booty: 50000,  look: 'galleon' },
-  { id: 'frigate',    name: 'Rogue Frigate',    hull: 140, guns: 18, reload: 1.9, tier: 31, booty: 70000,  look: 'frigate' },
-  { id: 'manowar',    name: 'Dread Man-o-War',  hull: 210, guns: 26, reload: 1.8, tier: 40, booty: 130000, look: 'manowar' },
+  { id: 'sloop',      name: 'Pirate Sloop',     hull: 9,   guns: 2,  reload: 2.8, tier: 0,  booty: 2600,   look: 'sloop' },
+  { id: 'schooner',   name: 'Pirate Schooner',  hull: 25,  guns: 3,  reload: 2.6, tier: 5,  booty: 7000,   look: 'schooner' },
+  { id: 'brigantine', name: 'Corsair Brig',     hull: 52,  guns: 5,  reload: 2.4, tier: 10, booty: 16000,  look: 'brigantine' },
+  { id: 'barque',     name: 'Raider Barque',    hull: 92,  guns: 8,  reload: 2.2, tier: 17, booty: 38000,  look: 'barque' },
+  { id: 'galleon',    name: 'Black Galleon',    hull: 125, guns: 12, reload: 2.1, tier: 24, booty: 88000,  look: 'galleon' },
+  { id: 'frigate',    name: 'Rogue Frigate',    hull: 160, guns: 18, reload: 1.9, tier: 31, booty: 120000, look: 'frigate' },
+  { id: 'manowar',    name: 'Dread Man-o-War',  hull: 240, guns: 26, reload: 1.8, tier: 42, booty: 225000, look: 'manowar' },
 ];
 
 TW.AMMO = [
