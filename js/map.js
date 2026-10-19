@@ -6,13 +6,77 @@
   let grid = null;           // Uint8Array, 1 = land
   const routeCache = {};
 
+  // ---------- Coastlines ----------
+  // TW.LAND is coarse: most small islands are bare four-corner boxes. Before anything is
+  // drawn or routed, each ring is turned into a natural-looking coast in map pixels: small
+  // islands become irregular blobs along their long axis, and every other coast has its
+  // straight edges broken up with a seeded wiggle and smoothed. The sailing grid is built
+  // from the same shapes, so routes and ports match what the chart shows.
+  let COAST = null;
+  function hash(n) {
+    n = Math.imul(n ^ (n >>> 16), 0x45d9f3b); n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
+  }
+  function noise1(x, seed) {   // smooth value noise, -1..1
+    const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f);
+    const a = hash(i * 374761 + seed * 668265 + 1), b = hash((i + 1) * 374761 + seed * 668265 + 1);
+    return (a * (1 - u) + b * u) * 2 - 1;
+  }
+  const fbm = (x, seed) => noise1(x, seed) * 0.6 + noise1(x * 2.3, seed + 7) * 0.3 + noise1(x * 5.1, seed + 13) * 0.1;
+  function chaikin(pts) {
+    const out = [];
+    for (let i = 0; i < pts.length; i++) {
+      const [ax, ay] = pts[i], [bx, by] = pts[(i + 1) % pts.length];
+      out.push([ax * 0.75 + bx * 0.25, ay * 0.75 + by * 0.25], [ax * 0.25 + bx * 0.75, ay * 0.25 + by * 0.75]);
+    }
+    return out;
+  }
+  // A small island: an irregular blob with the box's centre, long axis and rough area.
+  function islandBlob(pts, seed) {
+    const n0 = pts.length, cx = pts.reduce((s, p) => s + p[0], 0) / n0, cy = pts.reduce((s, p) => s + p[1], 0) / n0;
+    let sxx = 0, syy = 0, sxy = 0;
+    for (const [x, y] of pts) { sxx += (x - cx) ** 2; syy += (y - cy) ** 2; sxy += (x - cx) * (y - cy); }
+    const ang = 0.5 * Math.atan2(2 * sxy, sxx - syy), ca = Math.cos(ang), sa = Math.sin(ang);
+    let ra = 0, rb = 0;
+    for (const [x, y] of pts) { const u = (x - cx) * ca + (y - cy) * sa, v = -(x - cx) * sa + (y - cy) * ca; ra = Math.max(ra, Math.abs(u)); rb = Math.max(rb, Math.abs(v)); }
+    ra = Math.max(2.2, ra * 1.08); rb = Math.max(2.2, rb * 1.08);
+    const n = Math.max(16, Math.round((ra + rb) * 2.2)), out = [];
+    for (let k = 0; k < n; k++) {
+      const t = k / n, a = t * Math.PI * 2;
+      // Broad lobes and bays, then finer ragged edges.
+      const r = 1 + 0.36 * fbm(t * 4, seed) + 0.14 * fbm(t * 11, seed + 3) + 0.05 * fbm(t * 29, seed + 9);
+      const u = Math.cos(a) * ra * r, v = Math.sin(a) * rb * r;
+      out.push([cx + u * ca - v * sa, cy + u * sa + v * ca]);
+    }
+    return chaikin(out);
+  }
+  // A larger coast: subdivide long edges and push the new points in and out a little.
+  function roughen(pts, seed) {
+    const out = [];
+    let dist = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const [ax, ay] = pts[i], [bx, by] = pts[(i + 1) % pts.length];
+      const len = Math.hypot(bx - ax, by - ay) || 1, nx = -(by - ay) / len, ny = (bx - ax) / len;
+      const steps = Math.max(1, Math.ceil(len / 4)), amp = Math.min(2.6, len * 0.12);
+      for (let j = 0; j < steps; j++) {
+        const t = j / steps, d = j ? fbm((dist + t * len) / 10, seed) * amp : 0;   // keep the original corners
+        out.push([ax + (bx - ax) * t + nx * d, ay + (by - ay) * t + ny * d]);
+      }
+      dist += len;
+    }
+    return chaikin(out);
+  }
+  function buildCoast() {
+    COAST = TW.LAND.map((ring, i) => {
+      const pts = ring.map(([lon, lat]) => TW.project(lon, lat));
+      return pts.length <= 6 ? islandBlob(pts, i + 1) : roughen(pts, i + 1);
+    });
+  }
+
   function tracePolys(ctx) {
-    for (const ring of TW.LAND) {
+    for (const ring of COAST) {
       ctx.beginPath();
-      ring.forEach(([lon, lat], i) => {
-        const [x, y] = TW.project(lon, lat);
-        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
-      });
+      ring.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
       ctx.closePath();
       ctx.fill();
     }
@@ -210,7 +274,7 @@
     for (const [d, a] of [[3, 0.55], [6.5, 0.4], [10.5, 0.28], [15, 0.18]]) waterLine(ctx, d, `rgba(40,85,100,${a})`);
     // Land: an ochre wash with a greener band along the shore, inked coastline.
     ctx.save();
-    ctx.beginPath(); for (const ring of TW.LAND) addRing(ctx, ring);
+    ctx.beginPath(); for (const ring of COAST) addRing(ctx, ring);
     ctx.fillStyle = 'rgba(205,180,120,0.62)'; ctx.fill();
     ctx.clip();
     ctx.strokeStyle = 'rgba(110,140,70,0.45)'; ctx.lineWidth = 10; strokeRings(ctx);
@@ -254,10 +318,10 @@
     ctx.restore();
   }
   function addRing(ctx, ring) {
-    ring.forEach(([lon, lat], i) => { const [x, y] = TW.project(lon, lat); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ring.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
     ctx.closePath();
   }
-  function strokeRings(ctx) { for (const ring of TW.LAND) { ctx.beginPath(); addRing(ctx, ring); ctx.stroke(); } }
+  function strokeRings(ctx) { for (const ring of COAST) { ctx.beginPath(); addRing(ctx, ring); ctx.stroke(); } }
   // One thin line following every coast at distance d, as old engravers drew the sea.
   function waterLine(ctx, d, color) {
     const o = document.createElement('canvas'); o.width = M.w * 2; o.height = M.h * 2;
@@ -370,7 +434,7 @@
   };
 
   TW.initMap = function () {
-    buildGrid(); placePorts(); renderBase();
+    buildCoast(); buildGrid(); placePorts(); renderBase();
   };
 
   // opts: { state, hover, route, ship:{x,y,ang}, onlyKnown }
