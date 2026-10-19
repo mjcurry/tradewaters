@@ -41,13 +41,14 @@
   const SAMPLES = {
     cannon: ['cannon', 'cannon-2'], cannonFar: ['cannon-far'], hit: ['hit'], hitFar: ['hit-far'], splash: ['splash'],
     boom: ['boom'], sink: ['sink'], coins: ['coins'], click: ['click'], bell: ['bell'], storm: ['storm'], bad: ['bad'],
-    door: ['door'], map: ['map'], sail: ['sail'], anchor: ['anchor'], hammer: ['hammer'], mug: ['mug'], crate: ['crate'],
+    door: ['door'], map: ['map'], anchor: ['anchor'], hammer: ['hammer'], mug: ['mug'], crate: ['crate'],
     quill: ['quill'], cheer: ['cheer'],
-    load: ['load'], chainShot: ['chain-shot'], firePot: ['fire-pot'], fuse: ['fuse'],
+    load: ['load'], chainShot: ['chain-shot'], fuse: ['fuse'],
+    // sail and firePot deliberately have no samples: they use the original synthesized sounds.
   };
   const LEVEL = { cannon: 0.75, cannonFar: 0.45, hit: 0.8, hitFar: 0.45, splash: 0.35, boom: 0.9, sink: 0.7, coins: 0.7, click: 0.35,
-    bell: 0.55, storm: 0.8, bad: 0.6, door: 0.6, map: 0.7, sail: 0.7, anchor: 0.6, hammer: 0.6, mug: 0.6, crate: 0.6, quill: 0.6, cheer: 0.6,
-    load: 0.7, chainShot: 0.8, firePot: 0.75, fuse: 0.45 };   // the fuse is all hiss; keep it under the guns
+    bell: 0.55, storm: 0.8, bad: 0.6, door: 0.6, map: 0.7, anchor: 0.6, hammer: 0.6, mug: 0.6, crate: 0.6, quill: 0.6, cheer: 0.6,
+    load: 0.7, chainShot: 0.8, fuse: 0.45 };   // the fuse is all hiss; keep it under the guns
   const VARY = new Set(['cannon', 'cannonFar', 'hit', 'hitFar', 'splash', 'boom', 'coins', 'click', 'crate']);  // pitch-jitter these
   const MAX_VOICES = { cannon: 5, cannonFar: 4, hit: 3, hitFar: 3, splash: 3 };
   const buffers = {}, voices = {};
@@ -121,7 +122,8 @@
       case 'bad': tone(220, 0.4, 'sawtooth', 0.08, -100); break;
       case 'load': noise(0.15, 300, 0.4, 2); setTimeout(() => noise(0.12, 250, 0.4, 2), 160); break;
       case 'chainShot': noise(0.5, 600, 0.9, 3); tone(900, 0.6, 'sawtooth', 0.05, -500); break;
-      case 'firePot': noise(0.9, 1500, 0.5, 1); break;
+      case 'firePot': noise(1.0, 400, 1, 2); tone(50, 0.6, 'sine', 0.5, -20); break;   // the original special-shot explosion
+      case 'sail': tone(880, 1.2, 'sine', 0.15); tone(1320, 0.8, 'sine', 0.06); break;   // the original synthesized ship's bell
       case 'fuse': noise(0.8, 5000, 0.15, 0.4); break;
     }
   };
