@@ -80,6 +80,44 @@
     }
   }
 
+  // ----- Hostile ports -----
+  // Now and then pirates seize a port and close its harbor. The only way in is to fight
+  // past its fort and gun batteries; otherwise the town is retaken after a few months.
+  const hostile = () => S.hostile || (S.hostile = {});
+  const isHostile = id => !!(S.hostile && S.hostile[id]);
+  function hostileTick() {
+    for (const [id, h] of Object.entries(hostile())) if (S.day >= h.until) {
+      delete S.hostile[id];
+      log(`${TW.PORT[id].name} has been retaken from ${h.captain}'s pirates. Its harbor is open again.`);
+      toast(`⚓ ${TW.PORT[id].name} is open again.`, 'good');
+    }
+    // After the first two months, about one port every couple of months, two at most.
+    if (S.day < 60 || Object.keys(hostile()).length >= 2 || Math.random() > 1 / 55) return;
+    const options = S.known.filter(id => id !== S.port && !isHostile(id));
+    if (!options.length) return;
+    const id = options[Math.floor(Math.random() * options.length)];
+    const captain = TW.PIRATE_NAMES[Math.floor(Math.random() * TW.PIRATE_NAMES.length)];
+    S.hostile[id] = { since: S.day, until: S.day + irand(90, 180), captain };
+    log(`News: ${captain}'s pirates have seized ${TW.PORT[id].name} and closed its harbor.`);
+    toast(`☠ Pirates have seized ${TW.PORT[id].name}!`, 'bad');
+  }
+  // The nearest charted port that is still open, measured from `pos`.
+  function nearestOpenPort(pos, except) {
+    const open = S.known.filter(id => id !== except && !isHostile(id)).map(id => TW.PORT[id]);
+    return open.sort((a, b) => Math.hypot(a.x - pos.x, a.y - pos.y) - Math.hypot(b.x - pos.x, b.y - pos.y))[0] || TW.PORT[S.port];
+  }
+  // A hostile port's defenders: its fort, one or two gun batteries and sometimes a pirate
+  // ship or two in the harbor, all scaled to the danger level.
+  function makeDefenses(dest) {
+    const D = dangerLevel(), tier = Math.max(0, Math.min(5, Math.floor(D / 8))), row = TW.DEFENSES[tier];
+    const unit = (kind, name) => ({ kind, land: true, name, ...row[kind], reload: TW.DEFENSE_RELOAD });
+    const units = [unit('fort', 'Fortress')];
+    if (D >= 12) units.push(unit('battery', 'West Battery'), unit('battery', 'East Battery'));
+    else units.push(unit('battery', 'Gun Battery'));
+    const nShips = Math.random() < 0.55 ? 1 + (D >= 20 && Math.random() < 0.4) : 0;
+    return { captain: hostile()[dest].captain, port: dest, tier, ships: [...units, ...makeFleet().ships.slice(0, nShips)] };
+  }
+
   function remember() {
     const m = S.market[S.port];
     S.seen[S.port] = { day: S.day, p: Object.fromEntries(TW.GOODS.map(g => [g.id, Math.round(m[g.id].price)])) };
@@ -92,6 +130,7 @@
     TW.tickMarket(S);
     payUpkeep();
     expireContracts();
+    hostileTick();
     if (S.debt > 0 && S.loanDue && S.day === S.loanDue) {
       log('Your loan is now overdue. The moneylender’s interest rises to 15% a month.');
       toast('⚠ Your loan is overdue!', 'bad');
@@ -390,6 +429,7 @@
       uncharted: S.known.length < TW.PORTS.length, firstVisit: !(S.visited || {})[p.id],
       overdue: loanOverdue(), dueIn: S.loanDue ? S.loanDue - S.day : 0,
       contracts: contracts().length,
+      hostile: Object.keys(S.hostile || {}).filter(id => S.known.includes(id)).map(id => TW.PORT[id].name).join(' and '),
       wants: list(p.wants), makes: list(p.makes.filter(id => id !== 'gems')),
     };
   }
@@ -505,12 +545,15 @@
     const m = S.market[S.port];
     const rows = TW.GOODS.map(g => {
       const e = m[g.id], held = S.ship.cargo[g.id]?.qty || 0;
-      if (!TW.goodUnlocked(S, g)) return `<tr class="locked"><td>${g.icon} ${g.name}</td><td colspan="5">Unlocks at ${gold(g.unlock)} net worth</td></tr>`;
-      const buy = TW.unitBuy(e), sell = TW.unitSell(e), stock = Math.floor(e.stock);
+      // Goods above your standing can't be bought yet, but anything you've captured can be sold.
+      const locked = !TW.goodUnlocked(S, g);
+      if (locked && !held) return `<tr class="locked"><td>${g.icon} ${g.name}</td><td colspan="5">Unlocks at ${gold(g.unlock)} net worth</td></tr>`;
+      const noBuy = locked || !stockOf(e) || TW.banned(S.port, g.id);
+      const buy = TW.unitBuy(e), sell = TW.unitSell(e), stock = stockOf(e);
       const avg = S.ship.cargo[g.id]?.cost;
       const pl = held && avg ? Math.round((sell - avg) / avg * 100) : null;
       return `<tr data-good="${g.id}">
-        <td>${g.icon} <b>${g.name}</b>${e.kind ? `<span class="tagx ${e.kind}">${e.kind}</span>` : ''}${TW.banned(S.port, g.id) ? '<span class="tagx contraband" title="Banned here. You can sell on the black market, but you cannot buy, and patrols watch for it.">contraband</span>' : ''}</td>
+        <td>${g.icon} <b>${g.name}</b>${e.kind ? `<span class="tagx ${e.kind}">${e.kind}</span>` : ''}${TW.banned(S.port, g.id) ? '<span class="tagx contraband" title="Banned here. You can sell on the black market, but you cannot buy, and patrols watch for it.">contraband</span>' : ''}${locked ? `<span class="tagx sellonly" title="Captured goods. Merchants will buy them from you, but won't sell ${g.name.toLowerCase()} to you until ${fmt(g.unlock)} net worth.">sell only</span>` : ''}</td>
         <td class="${priceClass(g, buy)}">${fmt(buy)}</td>
         <td class="${priceClass(g, sell)}">${fmt(sell)}</td>
         <td>${stock || '<i class="muted">none</i>'}</td>
@@ -518,8 +561,8 @@
           `${held} <small class="${pl >= 0 ? 'up' : 'down'}">${pl >= 0 ? '+' : ''}${pl}%</small>`}</td>
         <td class="trade">
           <input type="number" min="0" value="" placeholder="qty" data-qty="${g.id}">
-          <button data-act="max-buy" data-good="${g.id}" title="Fill with the most you can buy">Max</button>
-          <button class="buy" data-act="buy" data-good="${g.id}" ${!stock || TW.banned(S.port, g.id) ? 'disabled' : ''}><span>Buy</span><small></small></button>
+          <button data-act="max-buy" data-good="${g.id}" title="Fill with the most you can buy" ${locked ? 'disabled' : ''}>Max</button>
+          <button class="buy" data-act="buy" data-good="${g.id}" ${noBuy ? 'disabled' : ''}><span>Buy</span><small></small></button>
           <button data-act="all-sell" data-good="${g.id}" ${!held ? 'disabled' : ''} title="Fill with all you hold">All</button>
           <button class="sell" data-act="sell" data-good="${g.id}" ${!held ? 'disabled' : ''}><span>Sell</span><small></small></button>
         </td></tr>`;
@@ -532,6 +575,8 @@
 
   // Live totals on a row's Buy and Sell buttons as the quantity is typed. Shows the
   // quantity actually traded when stock, hold space or cargo held caps the order.
+  const stockOf = e => Math.floor(e.stock);
+
   function showRowQuote(el, id, value) {
     const q = Math.max(0, Math.floor(+value || 0));
     const e = S.market[S.port][id], held = S.ship.cargo[id]?.qty || 0;
@@ -554,6 +599,7 @@
     let q = Math.max(0, Math.floor(+input.value || 0));
     const g = TW.GOOD[id], e = S.market[S.port][id];
     if (kind === 'buy') {
+      if (!TW.goodUnlocked(S, g)) return toast(`Merchants won't sell ${g.name.toLowerCase()} to you until ${gold(g.unlock)} net worth.`, 'bad');
       if (TW.banned(S.port, id)) return toast(`${g.name} is contraband in ${port().name}. Nobody will sell it to you openly.`, 'bad');
       if (!q) q = TW.maxBuy(S, S.port, id, S.cash, freeSpace());
       q = Math.min(q, Math.floor(e.stock), freeSpace());
@@ -730,6 +776,7 @@
       } else html += '<br><small><i>Never visited</i></small>';
       const due = contracts().filter(c => c.to === p.id);
       if (due.length) html += `<div class="tip-contracts">${due.map(c => `<div>${TW.contractIcon(c)} ${TW.describeContract(c)}<small> · due in ${c.due - S.day} days</small></div>`).join('')}</div>`;
+      if (isHostile(p.id)) html += `<br><b class="bad">☠ Seized by ${esc(hostile()[p.id].captain)}'s pirates.</b><br><small class="bad">The harbor is closed. Fight your way in to free it.</small>`;
       const bans = TW.nationOf(p.id).bans.filter(id => TW.goodUnlocked(S, TW.GOOD[id]));
       if (bans.length) html += `<br><small class="bad">${TW.nationOf(p.id).name} port: ${bans.map(id => TW.GOOD[id].name.toLowerCase()).join(' and ')} banned</small>`;
     }
@@ -747,6 +794,7 @@
     const warn = [];
     if (S.ship.hull < d.hull * 0.5) warn.push('Your hull is badly damaged.');
     if (!S.ship.guns) warn.push('You carry no cannons. Pirates will find you easy prey.');
+    if (isHostile(p.id)) warn.push(`${hostile()[p.id].captain}'s pirates hold ${p.name}. You'll have to fight past its fort to dock.`);
     const contraband = bannedAboard(p.id);
     if (contraband.length) warn.push(`${contraband.map(id => TW.GOOD[id].name).join(' and ')} ${contraband.length > 1 ? 'are' : 'is'} contraband in ${p.name}. Navy patrols may stop you.`);
     modal(`<h2>Sail to ${p.name}?</h2>
@@ -808,7 +856,7 @@
         v.pos = TW.pointAlong(route, v.t);
         while (v.dayDone < Math.floor(v.t * days)) { v.dayDone++; passDay(); hud(); }
         if (v.events.length && v.t >= v.events[0].t) { v.paused = true; runEvent(v, v.events.shift()); }
-        else if (v.t >= 1) return arrive(dest);
+        else if (v.t >= 1) return isHostile(dest) ? hostileArrival(v) : arrive(dest);
       }
       requestAnimationFrame(step);
     };
@@ -816,6 +864,27 @@
   }
 
   function resume(v) { v.paused = false; v.storm = false; hud(); }
+
+  function hostileArrival(v) {
+    const p = TW.PORT[v.dest], h = hostile()[v.dest];
+    v.paused = true;
+    TW.sfx('bell');
+    modal(`<h2>☠ A hostile port!</h2>
+      <p>A black flag flies over ${p.name}. <b>${esc(h.captain)}</b>'s pirates hold the town, and the fort's guns are run out. The only way into the harbor is to take it back.</p>
+      <p class="hint">Shore guns are easy to hit and easy to sail away from, but there are a lot of them. You have ${S.ship.guns - S.ship.broken} working cannons and ${S.ship.hull} hull.</p>`,
+      [['⚔ Attack the port', () => fight(v, makeDefenses(v.dest)), 'big'],
+       ['⛵ Sail on elsewhere', () => turnAway(v, `Turned away from ${p.name}, which is held by pirates.`), 'ghost']]);
+  }
+  // Leave a hostile port's waters for the nearest open harbor.
+  function turnAway(v, text) {
+    const near = nearestOpenPort(TW.PORT[v.dest], v.dest);
+    const days = travelDays(TW.route(v.dest, near.id));
+    for (let i = 0; i < days; i++) passDay();
+    log(`${text} Made for ${near.name}, ${days} more days at sea.`);
+    toast(`You make for ${near.name} (${days} days).`);
+    if (mapState) mapState.voyage = null;
+    arrive(near.id);
+  }
 
   function runEvent(v, ev) {
     if (ev.kind === 'storm') return stormEvent(v);
@@ -931,12 +1000,12 @@
     const el = $('#screen'); el.className = 'screen-combat';
     el.innerHTML = `<div class="combat-wrap"><canvas id="combat" width="960" height="540"></canvas></div>
       <div class="combat-bar">
-        <span class="hint">Click an enemy ship to target it. Cannons fire on their own.</span>
+        <span class="hint">${fleet.port ? 'Click the fort, a battery or a ship to target it.' : 'Click an enemy ship to target it.'} Cannons fire on their own.</span>
         ${TW.AMMO.map(a => `<button id="ammo-${a.id}" data-act="special" data-ammo="${a.id}" title="${a.desc}">${a.name} <span class="n">0</span></button>`).join('')}
         <button id="btn-flee" class="ghost" data-act="flee">Flee</button>
       </div>`;
     const before = { hull: S.ship.hull, broken: S.ship.broken, ammo: { ...S.ammo }, worth: worth() };
-    TW.Combat.start($('#combat'), { ship: S.ship, enemies: fleet.ships, ammo: S.ammo }, res => {
+    TW.Combat.start($('#combat'), { ship: S.ship, enemies: fleet.ships, ammo: S.ammo, port: fleet.port }, res => {
       TW.Combat.stop();
       S.ship.hull = res.hull; S.ship.broken = res.broken; S.ammo = res.ammo;
       afterCombat(v, fleet, res, before);
@@ -958,9 +1027,14 @@
     if (res.outcome === 'win') {
       S.stats.won++;
       before.shotUsed = TW.AMMO.reduce((n, am) => n + Math.max(0, before.ammo[am.id] - S.ammo[am.id]), 0);
-      const { spoils, booty, loot } = plunder(fleet);
-      log(`Defeated ${fleet.captain}'s pirates and took ${fmt(booty)} gold${loot.length ? ' and ' + loot.map(l => `${l.qty} ${l.name.toLowerCase()}`).join(', ') : ''}.`);
+      const { spoils, booty, loot } = fleet.port ? liberate(fleet) : plunder(fleet);
+      const haul = `${fmt(booty)} gold${loot.length ? ' and ' + loot.map(l => `${l.qty} ${l.name.toLowerCase()}`).join(', ') : ''}`;
+      log(fleet.port ? `Liberated ${TW.PORT[fleet.port].name} from ${fleet.captain}'s pirates and took ${haul}.`
+        : `Defeated ${fleet.captain}'s pirates and took ${haul}.`);
       backToMap(() => showPlunder(v, fleet, spoils, booty, loot, before), 'victory');
+    } else if (res.outcome === 'fled' && fleet.port) {
+      S.stats.fled++;
+      backToMap(() => turnAway(v, `Broke off the attack on ${TW.PORT[fleet.port].name}; its defenses were too strong.`));
     } else if (res.outcome === 'fled') {
       S.stats.fled++;
       log(`Escaped ${fleet.captain}'s pirates.`);
@@ -971,7 +1045,7 @@
       S.cash -= takeCash; S.ship.cargo = {}; S.ship.hull = 1;
       S.ship.broken = Math.min(S.ship.guns, S.ship.broken + Math.ceil(S.ship.guns / 2));
       const pos = v.pos;
-      const near = S.known.map(id => TW.PORT[id]).sort((a, b) => Math.hypot(a.x - pos.x, a.y - pos.y) - Math.hypot(b.x - pos.x, b.y - pos.y))[0];
+      const near = nearestOpenPort(pos, fleet.port);
       log(`Crippled by ${fleet.captain}. Lost all cargo and ${fmt(takeCash)} gold. Towed into ${near.name}.`);
       TW.sfx('bad');
       backToMap(() => modal(`<h2>Defeat</h2><p>Your ship is a smoking wreck. The pirates strip her bare and leave you adrift.</p>
@@ -990,9 +1064,16 @@
     const booty = spoils.reduce((a, sp) => a + sp.gold, 0);
     S.cash += booty; S.stats.booty += booty;
     const loot = [];
+    // Mostly goods you already trade, sometimes a richer cargo from a tier or two above
+    // your standing: you can't buy those yet, but any market will buy them from you.
     const goods = TW.GOODS.filter(g => TW.goodUnlocked(S, g) && g.id !== 'gems');
+    const rare = TW.GOODS.filter(g => !TW.goodUnlocked(S, g) && g.id !== 'gems').slice(0, 2);
     for (let i = 0; i < spoils.length; i++) {
-      if (Math.random() < 0.45) addLoot(goods[Math.floor(Math.random() * goods.length)].id, irand(5, 25), loot);
+      if (Math.random() < 0.45) {
+        const pool = rare.length && Math.random() < 0.2 ? rare : goods;
+        const g = pool[Math.floor(Math.random() * pool.length)];
+        addLoot(g.id, pool === rare ? irand(2, 8) : irand(5, 25), loot);
+      }
       if (Math.random() < 0.1) addLoot('gems', irand(1, 4), loot);
       if (Math.random() < 0.22) {
         const id = Math.random() < 0.6 ? 'chain' : 'fire', n = irand(1, 2);
@@ -1010,6 +1091,19 @@
     }
     S.peakWorth = Math.max(S.peakWorth, worth());
     return { spoils, booty, loot };
+  }
+  // Spoils for taking back a hostile port: the defenders' gold and stores, plus gems from
+  // the grateful town (paid in gold instead if the hold is full). The harbor reopens.
+  function liberate(fleet) {
+    const out = plunder(fleet);
+    const gems = irand(1, 2 + fleet.tier), room = Math.min(gems, Math.max(0, freeSpace()));
+    if (room) addLoot('gems', room, out.loot);
+    const inGold = (gems - room) * TW.GOOD.gems.min;
+    if (inGold) { S.cash += inGold; S.stats.booty += inGold; out.booty += inGold; }
+    delete hostile()[fleet.port];
+    S.stats.liberated = (S.stats.liberated || 0) + 1;
+    S.peakWorth = Math.max(S.peakWorth, worth());
+    return out;
   }
   // Merge identical spoils into one card with a running count.
   function addItem(list, item) {
@@ -1034,15 +1128,16 @@
     modal(`
       <div class="plunder-hero" style="${bgStyle('plunder')}">
         <div class="coin-rain" aria-hidden="true">${coins}</div>
-        <h1>Victory!</h1>
-        <p>${esc(fleet.captain)}’s ${spoils.length > 1 ? `fleet of ${spoils.length} is` : 'ship is'} sent to the bottom.</p>
+        <h1>${fleet.port ? 'Liberated!' : 'Victory!'}</h1>
+        <p>${fleet.port ? `${TW.PORT[fleet.port].name} is free! The townsfolk cheer you into the harbor.`
+          : `${esc(fleet.captain)}’s ${spoils.length > 1 ? `fleet of ${spoils.length} is` : 'ship is'} sent to the bottom.`}</p>
       </div>
       <div class="plunder-body">
         <section>
-          <h3>Ships sunk</h3>
+          <h3>${fleet.port ? 'Defenses taken' : 'Ships sunk'}</h3>
           ${spoils.map(sp => `<div class="sunk-row">
-            <canvas width="300" height="180" data-look="${sp.ship.look}"></canvas>
-            <div><b>${sp.ship.name}</b><small>${sp.ship.guns} guns · ${sp.ship.hull} hull</small></div>
+            <canvas width="300" height="180" ${sp.ship.land ? `data-kind="${sp.ship.kind}"` : `data-look="${sp.ship.look}"`}></canvas>
+            <div><b>${sp.ship.name}</b><small>${sp.ship.guns} guns · ${sp.ship.hull} ${sp.ship.land ? 'walls' : 'hull'}</small></div>
             <span class="gold">${fmt(sp.gold)}</span></div>`).join('')}
         </section>
         <section>
@@ -1059,7 +1154,17 @@
         <span>Special shot fired <b>${before.shotUsed}</b></span>
         <span>Net worth <b>${fmt(before.worth)}</b> → <b class="up">${fmt(worth())}</b></span>
       </div>`,
-      [['⛵ Back to sea', () => { TW.music('sea'); checkMilestones(); resume(v); }, 'big']], 'wide plunder');
+      [fleet.port ? ['⚓ Enter the harbor', () => { checkMilestones(); if (mapState) mapState.voyage = null; arrive(fleet.port); }, 'big']
+        : ['⛵ Back to sea', () => { TW.music('sea'); checkMilestones(); resume(v); }, 'big']], 'wide plunder');
+    $('#modal').querySelectorAll('canvas[data-kind]').forEach(c => {
+      // A wrecked fort or battery, still smoking, on its patch of headland.
+      const x = c.getContext('2d'), ground = c.height * 0.84;
+      x.fillStyle = '#5f7a3c'; x.fillRect(0, ground, c.width, c.height - ground);
+      x.fillStyle = '#c9a66b'; x.fillRect(0, ground + 6, c.width, c.height - ground - 6);
+      TW.drawDefenseFit(x, c.dataset.kind, c.width, c.height, { water: ground + 2, ruin: 0.8 });
+      x.fillStyle = 'rgba(220,220,215,0.45)';
+      for (let i = 0; i < 4; i++) { x.beginPath(); x.arc(c.width * (0.35 + i * 0.1), c.height * (0.28 - i * 0.04), 16 + i * 6, 0, Math.PI * 2); x.fill(); }
+    });
     $('#modal').querySelectorAll('canvas[data-look]').forEach(c => {
       // Listing and going down by the bow, half under the waves.
       const x = c.getContext('2d'), sea = c.height * 0.55;
@@ -1158,7 +1263,7 @@
         ['city', 'Explore the port', 'Every port has its own harbor. Click a building on the quay to step inside and meet its keeper. They have opinions about your ship, your debts and your cargo.'],
         ['market', 'Trade', 'Each port makes some goods cheaply and pays dearly for others. Buy where prices are <span class="cheap">green</span> and sell where they are <span class="dear">red</span>. Big trades move the price, and ports remember: run the same route again and again and its margin shrinks for weeks, so rotate your routes.'],
         ['map', 'Sail', 'Visit the Harbor Office or press Set Sail, then pick a port on the chart. Hover a port to see the prices you saw there last. Harbor Offices post freight contracts that beat market prices if you make the deadline, and taverns whisper of smuggling jobs. Each nation bans some goods, and its navy patrols the approaches.'],
-        ['combat', 'Survive', 'Pirates and storms prowl the sea lanes. In battle, click an enemy to target it. Your cannons fire on their own, and special ammo can turn the tide. Outgunned? Flee.'],
+        ['combat', 'Survive', 'Pirates and storms prowl the sea lanes. In battle, click an enemy to target it. Your cannons fire on their own, and special ammo can turn the tide. Outgunned? Flee. Now and then pirates seize a port and close its harbor: storm its fort and batteries to free it, for gold and gems.'],
         ['shipyard', 'Grow', 'Rising net worth (cash + bank + cargo \u2212 debt) unlocks richer goods, new charts and bigger ships. Cannons cost hold space, so balance firepower against cargo. Every day at sea costs wages and provisions, and the moneylender charges 10% a month with loans due in 90 days.'],
       ];
       modal(`<h2>How to Play</h2>${rows.map(([img, title, text]) => `
@@ -1305,7 +1410,7 @@
 
   // ---------- boot ----------
   function loadImages() {
-    const names = ['title', 'harbor', 'market', 'shipyard', 'tavern', 'combat', 'int-bank', 'int-lender', 'int-harbor', 'plunder'];
+    const names = ['title', 'harbor', 'market', 'shipyard', 'tavern', 'combat', 'siege', 'int-bank', 'int-lender', 'int-harbor', 'plunder'];
     return Promise.all(names.map(n => new Promise(res => {
       const img = new Image();
       img.onload = () => { TW.images[n] = img; res(); };
@@ -1338,6 +1443,12 @@
   TW._debug = { get state() { return S; }, set state(v) { S = v; }, go, passDay, makeFleet, worth, arrive, nextEvents: null,
     // Fire a sea event ('storm', 'pirates', 'flotsam', 'patrol') as if sailing toward `dest`.
     event(kind, dest = S.port) { runEvent({ dest, paused: true }, { kind }); },
+    // Hand a charted port to pirates now (defaults to the first other charted port).
+    hostile(id = S.known.find(k => k !== S.port)) { S.hostile = S.hostile || {}; S.hostile[id] = { since: S.day, until: S.day + 120, captain: 'Black Barnaby' }; return id; },
+    // Attack a hostile port as if just arrived there (from the map screen).
+    siege(id) { go('map'); const v = { dest: id, route: TW.route(S.port, id), days: 1, events: [], paused: true, pos: TW.PORT[id] }; mapState.voyage = v; fight(v, makeDefenses(id)); },
+    // Sail to `id` and arrive at once (fires the hostile-port prompt if pirates hold it).
+    reach(id) { go('map'); const v = { dest: id, route: TW.route(S.port, id), days: 1, events: [], paused: true, pos: TW.PORT[id] }; mapState.voyage = v; isHostile(id) ? hostileArrival(v) : arrive(id); },
     // Skip straight to the post-battle plunder screen against a freshly rolled pirate fleet.
     winBattle() {
       const fleet = makeFleet(), before = { hull: S.ship.hull, broken: S.ship.broken, ammo: { ...S.ammo }, worth: worth(), shotUsed: 0 };

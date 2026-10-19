@@ -294,6 +294,7 @@ table.market .trade button.sell { background: var(--coral); }
 .tagx.glut { background: var(--good); }
 .kv .ammo-buy { flex: none; white-space: nowrap; min-width: 9rem; text-align: center; }
 .tagx.contraband { background: #5a2a5a; }
+.tagx.sellonly { background: #8a6a1e; }
 /* Contract cards (Harbor Office, Tavern, Contracts dialog) */
 .contract { display: flex; align-items: center; gap: 0.7rem; padding: 0.55rem 0.7rem; margin: 0.4rem 0; border-radius: 0.55rem;
   background: rgba(255,255,255,0.55); border: 1px solid rgba(19,50,74,0.14); }

@@ -34,9 +34,13 @@
   let nextId = 1;
   const id = S => `c${S.day}-${nextId++}-${Math.floor(Math.random() * 1e4)}`;
 
+  // Charted ports other than `from` that are open for trade (not held by pirates).
+  const openPorts = (S, from) => S.known.filter(p => p !== from && !(S.hostile && S.hostile[p]));
+
   // ctx: { days(from, to), cargoCap, danger, unlocked(good) }
   function cargoOffer(S, from, ctx) {
-    const dests = S.known.filter(p => p !== from);
+    const dests = openPorts(S, from);
+    if (!dests.length) return null;
     const to = pick(dests);
     const tp = TW.PORT[to];
     const goods = TW.GOODS.filter(g => g.id !== 'gems' && ctx.unlocked(g) && !TW.banned(to, g.id));
@@ -51,7 +55,9 @@
   }
 
   function courierOffer(S, from, ctx) {
-    const to = pick(S.known.filter(p => p !== from));
+    const dests = openPorts(S, from);
+    if (!dests.length) return null;
+    const to = pick(dests);
     const days = ctx.days(from, to);
     const reward = Math.round((300 + days * 140) * (1 + ctx.danger / 14) / 10) * 10;
     return { id: id(S), kind: 'courier', from, to, reward, bond: Math.round(reward * 0.25 / 10) * 10,
@@ -60,7 +66,7 @@
 
   function smuggleOffer(S, from, ctx) {
     const options = [];
-    for (const to of S.known) if (to !== from) for (const gid of TW.nationOf(to).bans) if (ctx.unlocked(TW.GOOD[gid])) options.push([to, gid]);
+    for (const to of openPorts(S, from)) for (const gid of TW.nationOf(to).bans) if (ctx.unlocked(TW.GOOD[gid])) options.push([to, gid]);
     if (!options.length) return null;
     const [to, gid] = pick(options);
     const qty = Math.max(5, Math.min(200, Math.round(ctx.cargoCap * rand(0.15, 0.4) / 5) * 5));
@@ -80,6 +86,7 @@
       if (where === 'harbor') {
         offers.push(cargoOffer(S, portId, ctx), cargoOffer(S, portId, ctx));
         if (Math.random() < 0.8) offers.push(courierOffer(S, portId, ctx));
+        for (let i = offers.length - 1; i >= 0; i--) if (!offers[i]) offers.splice(i, 1);
       } else {
         const n = Math.random() < 0.5 ? 1 : 2;
         for (let i = 0; i < n; i++) { const o = smuggleOffer(S, portId, ctx); if (o) offers.push(o); }

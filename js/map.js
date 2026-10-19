@@ -257,8 +257,14 @@
         ctx.beginPath(); ctx.arc(p.x, p.y, 11 + Math.sin(performance.now() / 300) * 1.5, 0, Math.PI * 2);
         ctx.lineWidth = 2.5; ctx.strokeStyle = '#f2b84b'; ctx.stroke();
       }
+      const seized = known && state.hostile && state.hostile[p.id];
+      if (seized) {   // held by pirates: pulsing red ring and a skull
+        ctx.beginPath(); ctx.arc(p.x, p.y, 12 + Math.sin(performance.now() / 250) * 1.5, 0, Math.PI * 2);
+        ctx.lineWidth = 2.5; ctx.strokeStyle = 'rgba(232,96,76,0.9)'; ctx.stroke();
+        ctx.font = '13px serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff8e6'; ctx.fillText('☠', p.x, p.y - 15);
+      }
       ctx.beginPath(); ctx.arc(p.x, p.y, hov ? 8 : 6, 0, Math.PI * 2);
-      ctx.fillStyle = !known ? 'rgba(30,40,50,0.55)' : here ? '#f2b84b' : '#e8604c';
+      ctx.fillStyle = !known ? 'rgba(30,40,50,0.55)' : seized ? '#2b2b2b' : here ? '#f2b84b' : '#e8604c';
       ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#fff8e6'; ctx.stroke();
       ctx.font = (hov ? '16px' : '15px') + ' "IM Fell English SC", Georgia, serif';
       ctx.textAlign = p.lon > -64 ? 'right' : 'left';

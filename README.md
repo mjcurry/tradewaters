@@ -62,6 +62,7 @@ It keeps the core of the classics: **buy low, sell high, and survive the pirates
 - 🧾 **Contracts and contraband.** Harbor Offices post freight and courier contracts with deadlines and bonds; taverns offer smuggling jobs. Each nation bans certain goods, and its navy patrols the approaches, so you can submit, bribe or run.
 - 🗺️ **Real sea lanes.** Routes are found with A* pathfinding around coastlines traced from real geography.
 - ⚔️ **Real-time naval combat** with Chain Shot, Fire Pots and Powder Kegs. Or flee, if you're outgunned.
+- 🏰 **Hostile ports.** Now and then pirates seize a port and close its harbor. Storm its fortress and gun batteries to free it, for gold and gems.
 - 🚢 **Seven ships,** from sloop to man-o-war. Every cannon costs cargo space, so choose between firepower and profit.
 - 💰 **Bank, moneylender, sea charts and rumors.** The bank pays about 20% a year and covers wages when your purse is empty; the moneylender charges 10% a month and sends collectors after overdue loans.
 - ⚓ **Running costs.** Crews draw daily wages and provisions, so slow routes and oversized gun decks cost real money.

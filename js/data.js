@@ -70,6 +70,19 @@ TW.ENEMIES = [
   { id: 'manowar',    name: 'Dread Man-o-War',  hull: 240, guns: 26, reload: 1.8, tier: 42, booty: 225000, look: 'manowar' },
 ];
 
+// Port defenses for hostile-port battles, one row per tier (danger level / 8). From the
+// original's cannon emplacements and fortresses, rebalanced for this game's ships: land
+// targets are easy to hit and easy to sail away from, but carry a lot of guns.
+TW.DEFENSES = [
+  { battery: { hull: 10,  guns: 1,  booty: 1500 },  fort: { hull: 25,  guns: 2,  booty: 4500 } },
+  { battery: { hull: 35,  guns: 3,  booty: 6000 },  fort: { hull: 58,  guns: 4,  booty: 11000 } },
+  { battery: { hull: 46,  guns: 4,  booty: 8000 },  fort: { hull: 92,  guns: 6,  booty: 16000 } },
+  { battery: { hull: 58,  guns: 6,  booty: 16000 }, fort: { hull: 145, guns: 9,  booty: 32000 } },
+  { battery: { hull: 100, guns: 8,  booty: 32000 }, fort: { hull: 200, guns: 12, booty: 80000 } },
+  { battery: { hull: 140, guns: 10, booty: 80000 }, fort: { hull: 230, guns: 16, booty: 160000 } },
+];
+TW.DEFENSE_RELOAD = 3;
+
 TW.AMMO = [
   { id: 'chain', name: 'Chain Shot',  price: 600,   dmg: 10, all: false, desc: 'Heavy damage to the targeted ship.' },
   { id: 'fire',  name: 'Fire Pot',    price: 800,   dmg: 5,  all: true,  desc: 'Light damage to every enemy ship.' },
