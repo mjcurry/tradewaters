@@ -44,6 +44,8 @@
       for (const g of TW.GOODS) {
         const e = m[g.id];
         if (e.until && state.day >= e.until) { e.mult = 1; e.until = 0; e.kind = null; }
+        // A port that bans a good can't have a glut of it (older saves may hold one).
+        if (e.kind === 'glut' && TW.banned && TW.banned(port.id, g.id)) { e.mult = 1; e.until = 0; e.kind = null; }
         e.press = (e.press || 0) * PRESSURE_DECAY;
         const target = e.base * e.mult * (1 + e.press);
         e.price += (target - e.price) * 0.05 + gauss() * (g.max - g.min) * 0.02;
@@ -57,7 +59,8 @@
       const g = TW.GOODS[Math.floor(Math.random() * TW.GOODS.length)];
       const e = state.market[port.id][g.id];
       if (!e.kind) {
-        e.kind = Math.random() < 0.55 ? 'shortage' : 'glut';
+        // Banned goods only ever run short: a starved black market, never a glut of stock.
+        e.kind = TW.banned && TW.banned(port.id, g.id) || Math.random() < 0.55 ? 'shortage' : 'glut';
         e.mult = e.kind === 'shortage' ? rand(1.45, 1.9) : rand(0.45, 0.65);
         e.until = state.day + Math.round(rand(15, 45));
         if (e.kind === 'shortage') e.stock *= 0.3;

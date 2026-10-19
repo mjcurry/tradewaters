@@ -792,6 +792,7 @@
   }
   function eventTip(kind, g) {
     const good = g.name.toLowerCase();
+    if (kind === 'shortage' && TW.banned(S.port, g.id)) return `<b>Shortage.</b> ${good.charAt(0).toUpperCase() + good.slice(1)} is banned here, and the black market has run dry. It pays well above the usual price for a few weeks, if you can get it past the navy.`;
     return kind === 'shortage'
       ? `<b>Shortage.</b> ${port().name} has run short of ${good}, so it pays well above the usual price for a few weeks. A good time to sell here.`
       : `<b>Glut.</b> ${port().name} is overflowing with ${good}, so it's cheap for a few weeks. A good time to buy here.`;
