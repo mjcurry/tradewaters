@@ -207,10 +207,19 @@
     ctx.restore();
   }
 
-  TW.drawShipIcon = function (ctx, x, y, ang, scale = 1) {
+  // The player's ship on the chart: its painted sprite when `look` is given and loaded,
+  // otherwise a tiny two-sail silhouette. The waterline sits 4 units below (x, y).
+  TW.drawShipIcon = function (ctx, x, y, ang, scale = 1, look) {
     ctx.save(); ctx.translate(x, y); ctx.scale(scale, scale);
     const flip = Math.cos(ang) < 0 ? -1 : 1;
     ctx.scale(flip, 1);
+    const img = look && TW.shipArt && TW.shipArt(look);
+    if (img) {
+      const w = 30, h = w * img.height / img.width;
+      ctx.drawImage(img, -w / 2, 4 - h, w, h);
+      ctx.restore();
+      return;
+    }
     ctx.fillStyle = '#5a3a22';
     ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(9, 0); ctx.lineTo(6, 4); ctx.lineTo(-7, 4); ctx.closePath(); ctx.fill();
     ctx.fillStyle = '#fff8e6';
@@ -258,8 +267,9 @@
       ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(20,40,55,0.85)'; ctx.strokeText(label, lx, p.y + 4);
       ctx.fillStyle = known ? '#fff8e6' : '#c9d6dc'; ctx.fillText(label, lx, p.y + 4);
     }
-    if (opts.ship) TW.drawShipIcon(ctx, opts.ship.x, opts.ship.y, opts.ship.ang, 1.4);
-    else { const p = TW.PORT[state.port]; TW.drawShipIcon(ctx, p.x, p.y - 12, 0, 1.1); }
+    const look = state.ship && state.ship.type;
+    if (opts.ship) TW.drawShipIcon(ctx, opts.ship.x, opts.ship.y, opts.ship.ang, 1.4, look);
+    else { const p = TW.PORT[state.port]; TW.drawShipIcon(ctx, p.x, p.y - 12, 0, 1.1, look); }
     if (opts.storm) {
       ctx.fillStyle = 'rgba(40,50,70,0.35)'; ctx.fillRect(0, 0, M.w, M.h);
     }

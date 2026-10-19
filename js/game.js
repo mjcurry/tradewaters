@@ -611,7 +611,7 @@
           ${offers.length ? offers.map(o => {
             const s = TW.SHIP[o.id], locked = S.peakWorth < s.unlock;
             return `<div class="ship-offer ${locked ? 'locked' : ''}">
-              <canvas width="160" height="90" data-ship="${o.id}"></canvas>
+              <canvas width="320" height="180" data-ship="${o.id}"></canvas>
               <div><b>${s.name}</b> · ${gold(o.price)}<br><small>Hull ${s.hull} · Hold ${s.cargo} · Cannons ${s.guns} · Speed ${s.speed} · Upkeep from ${fmt(TW.upkeep(s, 0))} g/day</small><br>
               ${locked ? `<small class="bad">Shipwrights won't sell to you until ${fmt(s.unlock)} net worth.</small>` :
                 `<button data-act="buyship" data-ship="${o.id}" data-price="${o.price}">Buy for ${fmt(Math.max(0, o.price - tradeIn))} g after trade-in</button>`}</div></div>`;
@@ -619,8 +619,7 @@
         </div>
       </div>`;
     el.querySelectorAll('canvas[data-ship]').forEach(c => {
-      const x = c.getContext('2d'); x.scale(0.6, 0.6);
-      TW.drawShipSide(x, c.dataset.ship, 133, 140, 1, { scale: 0.75, flag: '#1f6f8b' });
+      TW.drawShipFit(c.getContext('2d'), c.dataset.ship, c.width, c.height, { water: c.height * 0.88, flag: '#1f6f8b' });
     });
   }
 
@@ -1022,7 +1021,7 @@
         <section>
           <h3>Ships sunk</h3>
           ${spoils.map(sp => `<div class="sunk-row">
-            <canvas width="150" height="90" data-look="${sp.ship.look}"></canvas>
+            <canvas width="300" height="180" data-look="${sp.ship.look}"></canvas>
             <div><b>${sp.ship.name}</b><small>${sp.ship.guns} guns · ${sp.ship.hull} hull</small></div>
             <span class="gold">${fmt(sp.gold)}</span></div>`).join('')}
         </section>
@@ -1042,8 +1041,14 @@
       </div>`,
       [['⛵ Back to sea', () => { TW.music('sea'); checkMilestones(); resume(v); }, 'big']], 'wide plunder');
     $('#modal').querySelectorAll('canvas[data-look]').forEach(c => {
-      const x = c.getContext('2d'); x.scale(0.8, 0.8);
-      TW.drawShipSide(x, c.dataset.look, 92, 98, -1, { scale: 0.62, tilt: 0.3, skull: true, sail: '#cfc6b0', hullColor: '#3d2a1d' });
+      // Listing and going down by the bow, half under the waves.
+      const x = c.getContext('2d'), sea = c.height * 0.55;
+      x.translate(c.width * 0.04, 0);
+      TW.drawShipFit(x, c.dataset.look, c.width, c.height, { water: c.height * 0.6, dir: -1, tilt: 0.25, pirate: true, sail: '#cfc6b0', hullColor: '#3d2a1d' });
+      x.setTransform(1, 0, 0, 1, 0, 0);
+      x.fillStyle = 'rgba(42,88,115,0.88)'; x.fillRect(0, sea, c.width, c.height - sea);
+      x.strokeStyle = 'rgba(235,245,250,0.5)'; x.lineWidth = 2;
+      x.beginPath(); for (let wx = 0; wx <= c.width; wx += 8) x.lineTo(wx, sea + Math.sin(wx / 14) * 2); x.stroke();
     });
     // Count the gold up, with a few coin clinks along the way.
     const el = $('#booty-count'), start = performance.now(), dur = 1600;
@@ -1304,7 +1309,7 @@
       new Promise(r => setTimeout(r, 2500)),
     ]);
     TW.initMap();
-    await loadImages();
+    await Promise.all([loadImages(), TW.loadShipArt()]);
     predecodeBuildings();
     go('title');
   };

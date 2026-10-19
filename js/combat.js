@@ -13,11 +13,46 @@
     manowar:    { len: 180, masts: [0.2, 0.47, 0.75], tall: 135, castle: 0.18 },
   };
 
-  // Simple flat ship silhouette. dir = 1 faces right, -1 faces left.
+  // Painted ship sprites, bow to the right, with the waterline along the bottom edge:
+  // m-<look> is the player's merchant rig, p-<look> the pirate version. Until they load
+  // (or if one fails) ships fall back to the flat silhouette below.
+  const ART = {};
+  TW.loadShipArt = function () {
+    return Promise.all(Object.keys(LOOKS).flatMap(look => ['m', 'p'].map(v => new Promise(res => {
+      const img = new Image();
+      img.onload = () => { ART[`${v}-${look}`] = img; res(); };
+      img.onerror = () => res();
+      img.src = `assets/img/ships/${v}-${look}.webp`;
+    }))));
+  };
+  const artFor = (look, pirate) => ART[`${pirate ? 'p' : 'm'}-${look}`];
+  TW.shipArt = artFor;
+  const artWidth = L => L.len * 1.5;   // painted ships include bowsprit and ensign
+
+  // dir = 1 faces right, -1 faces left. (x, y) sits a little above the waterline, which
+  // is at y + len * 0.11. opts.pirate (or the older opts.skull) picks the pirate art.
   function drawShip(ctx, look, x, y, dir, opts = {}) {
     const L = LOOKS[look] || LOOKS.sloop, s = opts.scale || 1;
+    const img = artFor(look, opts.pirate || opts.skull);
     ctx.save(); ctx.translate(x, y); ctx.rotate(opts.tilt || 0); ctx.scale(dir * s, s);
     const len = L.len, h = len * 0.22;
+    if (img) {
+      const w = artWidth(L), ah = w * img.height / img.width, wl = h * 0.5;
+      ctx.drawImage(img, -w / 2, wl - ah, w, ah);
+      if (opts.wash !== undefined) {
+        // A strip of sea and foam over the waterline, so the hull sits in the water.
+        const t = opts.wash, x0 = -w * 0.42, x1 = w * 0.4, d = len * 0.05;
+        ctx.beginPath(); ctx.moveTo(x0, wl + 2);
+        for (let wx = x0; wx <= x1; wx += 6) ctx.lineTo(wx, wl - d + Math.sin(wx / 9 + t * 3) * 1.6);
+        ctx.lineTo(x1, wl + 2); ctx.closePath();
+        ctx.fillStyle = 'rgba(16,42,66,0.78)'; ctx.fill();
+        ctx.beginPath();
+        for (let wx = x0; wx <= x1; wx += 6) ctx.lineTo(wx, wl - d + Math.sin(wx / 9 + t * 3) * 1.6);
+        ctx.strokeStyle = 'rgba(235,245,250,0.45)'; ctx.lineWidth = 1.5; ctx.stroke();
+      }
+      ctx.restore();
+      return;
+    }
     // hull
     ctx.fillStyle = opts.hullColor || '#5b3a24';
     ctx.beginPath();
@@ -53,8 +88,22 @@
   }
   TW.drawShipSide = drawShip;
 
-  // Height of an enemy ship sprite above its waterline (enemies draw at 0.75 scale).
-  const shipTop = e => { const L = LOOKS[e.look] || LOOKS.sloop; return (L.tall + L.len * 0.12 + 12) * 0.75; };
+  // Draw a ship scaled to fit a w×h box with its waterline at `water` (default: near the
+  // bottom). Used for the shipyard cards and the plunder list.
+  TW.drawShipFit = function (ctx, look, w, h, opts = {}) {
+    const L = LOOKS[look] || LOOKS.sloop, img = artFor(look, opts.pirate);
+    const water = opts.water ?? h * 0.94;
+    const sw = img ? artWidth(L) : L.len + 20, sh = img ? sw * img.height / img.width : L.tall + L.len * 0.2 + 12;
+    const s = Math.min(w * 0.9 / sw, water * 0.92 / sh);
+    drawShip(ctx, look, w / 2, water - L.len * 0.11 * s, opts.dir || 1, { ...opts, scale: s });
+  };
+
+  // Height above (x, y) and half-width of an enemy ship sprite (enemies draw at 0.75 scale).
+  const shipTop = e => {
+    const L = LOOKS[e.look] || LOOKS.sloop, img = artFor(e.look, true);
+    return (img ? artWidth(L) * img.height / img.width - L.len * 0.11 : L.tall + L.len * 0.12 + 12) * 0.75;
+  };
+  const shipHalfW = e => { const L = LOOKS[e.look] || LOOKS.sloop; return artFor(e.look, true) ? artWidth(L) * 0.32 : L.len * 0.5; };
 
   const Combat = {};
   let S = null;  // active combat state
@@ -261,7 +310,7 @@
       ctx.save();
       ctx.globalAlpha = 1 - e.sink * 0.9;
       drawShip(ctx, e.look, e.x, e.y + bob + e.sink * 60, -1,
-        { scale: 0.75, tilt: e.sink * 0.5, skull: true, sail: '#d8d0bc', hullColor: '#3d2a1e' });
+        { scale: 0.75, tilt: e.sink * 0.5, pirate: true, sail: '#d8d0bc', hullColor: '#3d2a1e', wash: t + i });
       ctx.restore();
       if (e.alive) {
         const bw = 90, bx = e.x - bw / 2, byy = e.y - shipTop(e) - 14;
@@ -271,12 +320,12 @@
         ctx.fillText(e.name, e.x, byy - 4);
         if (i === S.target) {
           ctx.strokeStyle = '#f2b84b'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
-          const top = shipTop(e); ctx.beginPath(); ctx.ellipse(e.x, e.y - top / 2 + 8, LOOKS[e.look].len * 0.5 + 12, top / 2 + 14, 0, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+          const top = shipTop(e); ctx.beginPath(); ctx.ellipse(e.x, e.y - top / 2 + 8, shipHalfW(e) + 12, top / 2 + 14, 0, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
         }
       }
     });
     // player
-    drawShip(ctx, S.pShip.id, S.px, S.py + Math.sin(t * 1.3) * 4, 1, { scale: 1.05, flag: '#1f6f8b', sail: '#fff8e6' });
+    drawShip(ctx, S.pShip.id, S.px, S.py + Math.sin(t * 1.3) * 4, 1, { scale: 1.05, flag: '#1f6f8b', sail: '#fff8e6', wash: t });
     // shots
     for (const s of S.shots) {
       const x = s.x0 + (s.x1 - s.x0) * s.t, y = s.y0 + (s.y1 - s.y0) * s.t - Math.sin(Math.PI * s.t) * s.arc;
