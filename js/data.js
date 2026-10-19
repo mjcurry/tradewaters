@@ -83,6 +83,71 @@ TW.DEFENSES = [
 ];
 TW.DEFENSE_RELOAD = 3;
 
+// Curiosities: charms sold by a trader in the taverns, after the magic dolls of Tradewinds 2.
+// `promise` is the trader's pitch; the truth (`fx`, `desc`) shows only once you've paid.
+// Some come in a crooked version (`cursed`, with its odds) and the rag doll is always a dud.
+// Effects multiply: hull, cargo, speed, reload (lower is faster), storm, pirates and patrol
+// (encounter odds), enemyAim, bankRate, loanRate, loanCap, drinks; rumorTrue and noLoans
+// are switches. Sold back to any trader for half the price.
+TW.CURIOS = [
+  { id: 'ragdoll', name: 'Lucky Rag Doll', icon: '🧸', price: 10000, fake: true,
+    promise: 'Brings a fair wind and a full purse to whoever carries it. The trader swears on his mother.',
+    reveal: 'It is stuffed with sawdust and nothing else. You have been had.' },
+  { id: 'lenderdoll', name: "Moneylender's Doll", icon: '🪆', price: 15000,
+    promise: 'Moneylenders will trust you with three times the credit.',
+    fx: { loanCap: 3, loanRate: 2 }, desc: 'Lenders offer three times the credit, at double the interest.' },
+  { id: 'stormdoll', name: 'Storm Watcher Doll', icon: '🪞', price: 100000,
+    promise: 'Holds a tiny mirror that sees storms coming long before your lookout does.',
+    fx: { storm: 0.5 }, desc: 'Storms are half as likely.' },
+  { id: 'bartenderdoll', name: "Bartender's Doll", icon: '🍻', price: 200000,
+    promise: 'Loosens every tongue in every tavern. No more idle gossip.',
+    fx: { rumorTrue: true }, desc: 'Every rumor points to a real shortage or glut.',
+    cursed: { chance: 0.35, fx: { rumorTrue: true, drinks: 3 }, desc: 'Every rumor is true, but the house now charges you triple for a round.' } },
+  { id: 'battledoll', name: 'Battle Doll', icon: '🎯', price: 300000,
+    promise: 'Your gunners will reload thirty per cent faster.',
+    fx: { reload: 0.7 }, desc: 'Cannons reload 30% faster.',
+    cursed: { chance: 0.35, fx: { reload: 0.7, pirates: 2 }, desc: 'Cannons reload 30% faster, but it seems to call pirates to you: twice as many attacks.' } },
+  { id: 'friendring', name: 'Ring of Friendship', icon: '💍', price: 400000,
+    promise: 'Wins you the friendship of every moneylender in the Caribbean.',
+    fx: { loanRate: 0.5 }, desc: 'Moneylenders charge half the interest.' },
+  { id: 'bankerdoll', name: "Banker's Doll", icon: '🏦', price: 1000000,
+    promise: 'Bankers pay half as much again in interest.',
+    fx: { bankRate: 1.5, noLoans: true }, desc: 'Bank interest is half as much again, but moneylenders now refuse to deal with you.' },
+  { id: 'shielddoll', name: 'Magic Shield Doll', icon: '🛡️', price: 2000000,
+    promise: 'Wards your hull. Cannonballs bounce off a little more often.',
+    fx: { hull: 1.2 }, desc: 'Hull 20% stronger.' },
+  { id: 'mambo', name: 'Stinky Mambo', icon: '🌫️', price: 2000000,
+    promise: 'Summons a fog that hides your ship from pirates.',
+    fx: { pirates: 0.4 }, desc: 'Not fog: a stench. Pirates keep well clear, with 60% fewer attacks.' },
+  { id: 'shrinkwand', name: 'Shrink Wand', icon: '🪄', price: 5000000,
+    promise: 'Shrinks everything in your hold to fit more aboard.',
+    fx: { cargo: 1.5 }, desc: 'Hold capacity +50%.' },
+  { id: 'portdoll', name: 'Port Authority Doll', icon: '🪆', price: 8000000,
+    promise: 'Customs officers simply cannot see contraband near it.',
+    fx: { patrol: 0 }, desc: 'Navy patrols never stop you.',
+    cursed: { chance: 0.5, fx: { patrol: 0.5 }, desc: 'This one is missing an eye. Patrols stop you half as often.' } },
+  { id: 'blindsailor', name: 'Blind Sailor', icon: '🕶️', price: 12000000,
+    promise: 'Blinds the gunners of any ship that dares fire on you.',
+    fx: { enemyAim: 0.4 }, desc: 'Enemy gunners hit 60% less often.' },
+];
+TW.CURIO = Object.fromEntries(TW.CURIOS.map(c => [c.id, c]));
+
+// Ship fittings sold at shipyards, after Tradewinds 2's ship upgrades. They are built into
+// the ship and lost when you change ships. Cost is a share of the ship's price; `replaces`
+// names a lesser fitting this one supersedes.
+TW.FITTINGS = [
+  { id: 'speedguns', name: 'Speed Cannons', icon: '🎯', cost: 0.18, fx: { reload: 0.8 }, desc: 'Streamlined cannons that reload 20% faster.' },
+  { id: 'heavyguns', name: 'Heavy Cannons', icon: '💣', cost: 0.35, fx: { reload: 0.7 }, desc: 'Heavy-bore cannons on new carriages: reload 30% faster.', replaces: 'speedguns' },
+  { id: 'oak', name: 'Reinforced Oak', icon: '🪵', cost: 0.25, fx: { hull: 1.2 }, desc: 'Oak planking doubled below the waterline: hull 20% stronger.' },
+  { id: 'storage', name: 'Storage Hull', icon: '📦', cost: 0.2, fx: { cargo: 1.2 }, desc: 'Rebuilt holds: 20% more cargo space.' },
+  { id: 'massive', name: 'Massive Hull', icon: '🛢️', cost: 0.5, fx: { cargo: 1.5 }, desc: 'A deeper, wider hull: 50% more cargo space.', replaces: 'storage' },
+  { id: 'evasive', name: 'Evasive Rigging', icon: '⛵', cost: 0.3, fx: { pirates: 0.6 }, desc: 'Quick-handling sails: pirates spot and catch you 40% less often.' },
+  { id: 'feather', name: 'Feather-Light Trim', icon: '🪶', cost: 0.25, fx: { speed: 1.2, pirates: 0.8, storm: 1.5 }, desc: '20% faster and harder to catch, but storms catch a light ship more often.' },
+  { id: 'compass', name: 'Ultimate Compass', icon: '🧭', cost: 0.4, fx: { storm: 0 }, desc: 'Set into the binnacle. With it, you never sail into a storm.' },
+];
+TW.FITTING = Object.fromEntries(TW.FITTINGS.map(f => [f.id, f]));
+TW.fittingPrice = (f, ship) => Math.max(3000, Math.round(ship.price * f.cost / 100) * 100);
+
 TW.AMMO = [
   { id: 'chain', name: 'Chain Shot',  price: 600,   dmg: 10, all: false, desc: 'Heavy damage to the targeted ship.' },
   { id: 'fire',  name: 'Fire Pot',    price: 800,   dmg: 5,  all: true,  desc: 'Light damage to every enemy ship.' },

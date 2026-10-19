@@ -24,7 +24,23 @@
   const worth = (s = S) => s.cash + s.bank - s.debt +
     Object.values(s.ship.cargo).reduce((a, c) => a + c.qty * c.cost, 0);
   TW.goodUnlocked = (s, g) => s.peakWorth >= g.unlock;
-  const shipDef = () => TW.SHIP[S.ship.type];
+  // ---------- Curiosities and fittings ----------
+  // Their effects multiply together (see TW.CURIOS in data.js); switches just turn on.
+  const curioFx = it => { const c = TW.CURIO[it.id]; return it.variant === 'fake' ? {} : it.variant === 'cursed' ? c.cursed.fx : c.fx; };
+  const curioDesc = it => { const c = TW.CURIO[it.id]; return it.variant === 'fake' ? 'Worthless. Stuffed with sawdust.' : it.variant === 'cursed' ? c.cursed.desc : c.desc; };
+  function mods(fittings = S.ship.fittings, items = S.items) {
+    const m = { hull: 1, cargo: 1, speed: 1, reload: 1, storm: 1, pirates: 1, patrol: 1, enemyAim: 1, bankRate: 1, loanRate: 1, loanCap: 1, drinks: 1, rumorTrue: false, noLoans: false };
+    const apply = fx => { for (const [k, v] of Object.entries(fx)) m[k] = typeof v === 'boolean' ? m[k] || v : m[k] * v; };
+    for (const it of items || []) apply(curioFx(it));
+    for (const id of fittings || []) apply(TW.FITTING[id].fx);
+    return m;
+  }
+  // A ship's working numbers once fittings and curiosities are counted.
+  function statsFor(type, fittings) {
+    const b = TW.SHIP[type], m = mods(fittings);
+    return { ...b, hull: Math.round(b.hull * m.hull), cargo: Math.round(b.cargo * m.cargo), speed: Math.round(b.speed * m.speed), reload: Math.round(b.reload * m.reload * 100) / 100 };
+  }
+  const shipDef = () => statsFor(S.ship.type, S.ship.fittings);
   const cargoQty = () => Object.values(S.ship.cargo).reduce((a, c) => a + c.qty, 0);
   const usedSpace = () => cargoQty() + S.ship.guns * TW.GUN_SPACE;
   const freeSpace = () => shipDef().cargo - usedSpace();
@@ -136,9 +152,9 @@
       toast('⚠ Your loan is overdue!', 'bad');
     }
     if (monthIndex(S.day) !== before) {
-      if (S.bank > 0) { const i = Math.round(S.bank * BANK_RATE); S.bank += i; log(`The bank paid ${fmt(i)} gold in interest.`); }
+      if (S.bank > 0) { const i = Math.round(S.bank * BANK_RATE * mods().bankRate); S.bank += i; log(`The bank paid ${fmt(i)} gold in interest.`); }
       if (S.debt > 0) {
-        const i = Math.round(S.debt * (loanOverdue() ? OVERDUE_RATE : LOAN_RATE)); S.debt += i;
+        const i = Math.round(S.debt * (loanOverdue() ? OVERDUE_RATE : LOAN_RATE) * mods().loanRate); S.debt += i;
         log(`The moneylender adds ${fmt(i)} gold of interest to your debt.`);
       }
       if (S.wages) { log(`Paid ${fmt(S.wages)} gold in wages and provisions last month.`); S.wages = 0; }
@@ -157,7 +173,7 @@
     if (owed > 0 && S.unpaidMonth !== monthIndex(S.day)) { S.unpaidMonth = monthIndex(S.day); log('No gold for wages. The crew grumbles but sails on.'); }
   }
   const loanOverdue = () => S.debt > 0 && S.loanDue && S.day >= S.loanDue;
-  const loanLimit = () => (loanOverdue() ? 0 : Math.max(0, Math.max(5000, worth()) - S.debt));
+  const loanLimit = () => { const m = mods(); return loanOverdue() || m.noLoans ? 0 : Math.max(0, Math.max(5000, worth()) * m.loanCap - S.debt); };
 
   // ----- Contracts -----
   const contracts = () => (S.contracts = S.contracts || []);
@@ -673,6 +689,18 @@
           <div class="kv"><span>Ports charted</span><b>${S.known.length} of ${TW.PORTS.length}</b></div>
         </section>
       </div>
+      <div class="ship-items">
+        <section><h3>Curiosities aboard</h3>
+          ${(S.items || []).length ? S.items.map((it, i) => { const c = TW.CURIO[it.id];
+            return `<div class="kv item-row"><span>${c.icon} <b>${c.name}</b>${it.variant === 'cursed' ? ' <small class="bad">has a catch</small>' : it.variant === 'fake' ? ' <small class="bad">fake</small>' : ''}<br><small>${curioDesc(it)}</small></span>
+              <button class="ghost" data-act="sell-curio" data-i="${i}" title="Traders buy curiosities back at half price">Sell · ${fmt(Math.round(it.paid / 2))} g</button></div>`; }).join('')
+            : '<p class="hint">None yet. Tavern traders sell charms, some of which even work.</p>'}
+        </section>
+        <section><h3>Fittings on the ${esc(shipName())}</h3>
+          ${(S.ship.fittings || []).length ? S.ship.fittings.map(id => { const f = TW.FITTING[id]; return `<div class="kv item-row"><span>${f.icon} <b>${f.name}</b><br><small>${f.desc}</small></span></div>`; }).join('')
+            : '<p class="hint">None fitted. Shipyards sell cannon, hull and rigging upgrades.</p>'}
+        </section>
+      </div>
       <h3 class="ladder-head">The ships of the Caribbean</h3>
       <div class="ship-ladder">${TW.SHIPS.map(x => {
         const mine = x.id === d.id, open = S.peakWorth >= x.unlock;
@@ -818,6 +846,27 @@
     checkMilestones(); remember(); save(); render();
   }
 
+  const roundCost = () => Math.round(50 * mods().drinks);
+  // Each tavern's curiosity trader and each shipyard's fittings restock monthly.
+  function curiosAt(portId) {
+    const month = monthIndex(S.day), store = S.curios || (S.curios = {});
+    if (!store[portId] || store[portId].month !== month) {
+      const pool = TW.CURIOS.filter(c => c.price <= Math.max(25000, S.peakWorth * 1.5));
+      const n = Math.random() < 0.5 ? 1 : 2, picks = [];
+      while (picks.length < Math.min(n, pool.length)) { const c = pool[Math.floor(Math.random() * pool.length)]; if (!picks.some(o => o.id === c.id)) picks.push({ id: c.id, price: Math.round(c.price * rand(0.9, 1.15) / 100) * 100 }); }
+      store[portId] = { month, offers: picks };
+    }
+    return store[portId].offers;
+  }
+  function fittingsAt(portId) {
+    const month = monthIndex(S.day), store = S.fitStock || (S.fitStock = {});
+    if (!store[portId] || store[portId].month !== month) {
+      const ids = TW.FITTINGS.map(f => f.id).sort(() => Math.random() - 0.5).slice(0, irand(3, 4));
+      store[portId] = { month, ids: TW.FITTINGS.map(f => f.id).filter(id => ids.includes(id)) };
+    }
+    return store[portId].ids.map(id => TW.FITTING[id]);
+  }
+
   function renderTavern(el) {
     const chartCost = 2500 + 2000 * Math.max(0, S.known.length - 9);
     const unknown = TW.PORTS.length - S.known.length;
@@ -825,7 +874,7 @@
     el.innerHTML = `<h2>${tavernName ? (/^[A-Z’']/.test(tavernName) && !/^(La|El|’t) /.test(tavernName) ? 'The ' : '') + tavernName : 'The Tavern'}</h2>
       <p class="hint">Sailors talk when the drinks are free. Buy a round and hear what's going around the harbor.</p>
       <div class="row wrap">
-        <button data-act="rumor">🍺 Buy a round (${fmt(50)} g)</button>
+        <button data-act="rumor">🍺 Buy a round (${fmt(roundCost())} g)</button>
         <button data-act="chart" ${!unknown ? 'disabled' : ''}>🗺 Buy a sea chart (${fmt(chartCost)} g)</button>
         <button data-act="wait">🛏 Wait 3 days</button>
       </div>
@@ -833,11 +882,20 @@
       <h3>Whispers in the back room</h3>
       ${(() => { const offers = TW.boardOffers(S, S.port, 'tavern', contractCtx());
         return offers.length ? '<p class="hint">Banned goods pay handsomely, if the navy doesn’t catch you on the way in.</p>' + offers.map(c => contractCard(c, 'take')).join('')
-          : '<p class="hint">Nobody here wants anything smuggled. Yet.</p>'; })()}`;
+          : '<p class="hint">Nobody here wants anything smuggled. Yet.</p>'; })()}
+      <h3>The curiosity trader</h3>
+      <p class="hint">A sly fellow with a tray of charms. Some work as promised. Some don’t. You only find out once you’ve paid.</p>
+      ${(() => { const offers = curiosAt(S.port);
+        return offers.length ? offers.map(o => { const c = TW.CURIO[o.id], owned = (S.items || []).some(it => it.id === o.id);
+          return `<div class="contract curio"><span class="c-ico">${c.icon}</span>
+            <div class="c-body"><b>${c.name}</b><i class="c-note">“${c.promise}”</i></div>
+            <span class="c-reward">${gold(o.price)}</span>
+            <button data-act="buy-curio" data-id="${o.id}" ${owned ? 'disabled title="You already carry one"' : ''}>${owned ? 'Owned' : 'Buy'}</button></div>`; }).join('')
+          : '<p class="hint">The trader has sold out. Come back next month.</p>'; })()}`;
   }
 
   function renderShipyard(el) {
-    const d = shipDef(), missing = d.hull - S.ship.hull, rate = 40 + 15 * TW.SHIPS.indexOf(d);
+    const d = shipDef(), missing = d.hull - S.ship.hull, rate = 40 + 15 * TW.SHIPS.findIndex(x => x.id === d.id);
     const repairCost = missing * rate, fixGun = 400;
     const tradeIn = Math.round(d.price * 0.6 * (0.5 + 0.5 * S.ship.hull / d.hull) / 100) * 100;
     const offers = (S.offers[S.port] || []).filter(o => o.id !== S.ship.type);
@@ -853,6 +911,15 @@
           <div class="row"><button data-act="gun-buy" ${S.ship.guns >= d.guns ? 'disabled' : ''}>Buy cannon</button><button data-act="gun-sell" ${!S.ship.guns ? 'disabled' : ''}>Sell cannon</button></div>
           <h3>Special ammunition</h3>
           ${TW.AMMO.map(a => `<div class="kv"><span><b>${a.name}</b> (${S.ammo[a.id]}): ${a.desc}</span><button class="ammo-buy" data-act="ammo" data-ammo="${a.id}">Buy · ${fmt(a.price)} g</button></div>`).join('')}
+          <h3>Fittings for your ${d.name}</h3>
+          <p class="hint">Built into the ship: if you buy another ship, they stay behind with this one. Stock changes every month.</p>
+          ${fittingsAt(S.port).map(f => {
+            const have = (S.ship.fittings || []), installed = have.includes(f.id);
+            const better = TW.FITTINGS.find(x => x.replaces === f.id && have.includes(x.id));
+            const price = TW.fittingPrice(f, TW.SHIP[S.ship.type]);
+            return `<div class="kv fitting"><span>${f.icon} <b>${f.name}</b>: ${f.desc}${f.replaces && have.includes(f.replaces) ? ` <small>(replaces your ${TW.FITTING[f.replaces].name})</small>` : ''}</span>
+              <button class="ammo-buy" data-act="buy-fitting" data-id="${f.id}" ${installed || better ? 'disabled' : ''}>${installed ? 'Installed' : better ? 'Superseded' : `Fit · ${fmt(price)} g`}</button></div>`;
+          }).join('')}
         </div>
         <div>
           <h3>Ships for sale</h3>
@@ -874,7 +941,7 @@
 
   function renderBank(el) {
     el.innerHTML = `<h2>Bank</h2>
-      <p>Deposits are safe from pirates and earn <b>1.5% a month</b> (about 20% a year). Wages are drawn from here if your purse runs dry. Your balance: ${gold(S.bank)}</p>
+      <p>Deposits are safe from pirates and earn <b>${+(BANK_RATE * mods().bankRate * 100).toFixed(2)}% a month</b>. Wages are drawn from here if your purse runs dry. Your balance: ${gold(S.bank)}</p>
       <div class="row"><input type="number" id="amt" min="0" placeholder="amount">
       <button data-act="deposit">Deposit</button><button data-act="withdraw">Withdraw</button>
       <button class="ghost" data-act="deposit-all">Deposit all</button><button class="ghost" data-act="withdraw-all">Withdraw all</button></div>
@@ -885,7 +952,7 @@
     const due = S.debt > 0 && S.loanDue ? (overdue ? `<b class="bad">Overdue since ${dateStr(S.loanDue)}.</b> Interest is now 15% a month and collectors will meet you in any port with a moneylender.`
       : `Due in <b>${S.loanDue - S.day} days</b> (${dateStr(S.loanDue)}).`) : '';
     el.innerHTML = `<h2>Moneylender</h2>
-      <p>Loans cost <b>10% a month</b>, up to your net worth, and fall due ${LOAN_TERM} days after you first borrow.</p>
+      <p>${mods().noLoans ? '<b class="bad">Word of your Banker’s Doll has reached the moneylenders. They will not lend to you.</b>' : `Loans cost <b>${+(LOAN_RATE * mods().loanRate * 100).toFixed(1)}% a month</b>, up to ${mods().loanCap > 1 ? `${mods().loanCap}× ` : ''}your net worth, and fall due ${LOAN_TERM} days after you first borrow.`}</p>
       <p>Current debt: ${gold(S.debt)} ${due}</p>
       <p>${overdue ? 'No new loans until you settle up.' : `You may borrow up to ${gold(max)}.`}</p>
       <div class="row"><input type="number" id="amt" min="0" placeholder="amount">
@@ -1015,16 +1082,17 @@
     TW.sfx('sail');
     const scale = Math.max(0.5, Math.min(1.6, route.len / 350));
     const events = [];
-    if (Math.random() < 0.12 * scale) events.push({ t: rand(0.2, 0.8), kind: 'storm' });
+    const m = mods();
+    if (Math.random() < 0.12 * scale * m.storm) events.push({ t: rand(0.2, 0.8), kind: 'storm' });
     // Fewer but tougher encounters; a fuller hold draws more attention.
     const watched = contracts().some(c => c.risky && c.to === dest);   // a leaked job draws pirates
-    const pirateChance = 0.18 * scale * (cargoQty() ? 0.75 + 0.5 * usedSpace() / shipDef().cargo : 0.5) + (watched ? 0.2 : 0);
+    const pirateChance = (0.18 * scale * (cargoQty() ? 0.75 + 0.5 * usedSpace() / shipDef().cargo : 0.5) + (watched ? 0.2 : 0)) * m.pirates;
     if (Math.random() < pirateChance) events.push({ t: rand(0.25, 0.85), kind: 'pirates' });
     if (Math.random() < 0.05) events.push({ t: rand(0.2, 0.8), kind: 'flotsam' });
     // Navy patrols watch the approaches to ports that ban goods you are carrying.
     if (bannedAboard(dest).length) {
       const smuggling = contracts().some(c => c.kind === 'smuggle' && c.to === dest);
-      if (Math.random() < Math.min(0.5, 0.2 * scale + (smuggling ? 0.15 : 0))) events.push({ t: rand(0.6, 0.9), kind: 'patrol' });
+      if (Math.random() < Math.min(0.5, 0.2 * scale + (smuggling ? 0.15 : 0)) * m.patrol) events.push({ t: rand(0.6, 0.9), kind: 'patrol' });
     }
     if (TW._debug.nextEvents) { TW._debug.nextEvents.forEach(kind => events.push({ t: rand(0.2, 0.8), kind })); TW._debug.nextEvents = null; }
     events.sort((a, b) => a.t - b.t);
@@ -1190,13 +1258,15 @@
     el.className = 'screen-combat';
     el.innerHTML = `<div class="combat-wrap"><canvas id="combat" width="960" height="540"></canvas></div>
       <div class="combat-bar">
-        <span class="hint">${fleet.port ? 'Click the fort, a battery or a ship to target it.' : 'Click an enemy ship to target it.'} Cannons fire on their own.</span>
+        <span class="hint">${fleet.port ? 'Click the fort, a battery or a ship to target it.' : 'Click an enemy ship to target it.'} Cannons fire on their own; click a special shot to load it into the next gun.</span>
         ${TW.AMMO.map(a => `<button id="ammo-${a.id}" data-act="special" data-ammo="${a.id}" title="${a.desc}">${a.name} <span class="n">0</span></button>`).join('')}
         <button id="btn-flee" class="ghost" data-act="flee">Flee</button>
       </div>`;
     });
     const before = { hull: S.ship.hull, broken: S.ship.broken, ammo: { ...S.ammo }, worth: worth() };
-    TW.Combat.start($('#combat'), { ship: S.ship, enemies: fleet.ships, ammo: S.ammo, port: fleet.port }, res => {
+    const d = shipDef();
+    TW.Combat.start($('#combat'), { ship: S.ship, stats: { hull: d.hull, reload: d.reload, speed: d.speed }, enemyAim: mods().enemyAim,
+      enemies: fleet.ships, ammo: S.ammo, port: fleet.port }, res => {
       TW.Combat.stop();
       S.ship.hull = res.hull; S.ship.broken = res.broken; S.ammo = res.ammo;
       afterCombat(v, fleet, res, before);
@@ -1499,8 +1569,8 @@
         ['city', 'Explore the port', 'Every port has its own harbor. Click a building on the quay to step inside and meet its keeper. They have opinions about your ship, your debts and your cargo.'],
         ['market', 'Trade', 'Each port makes some goods cheaply and pays dearly for others. Buy where prices are <span class="cheap">green</span> and sell where they are <span class="dear">red</span>. Big trades move the price, and ports remember: run the same route again and again and its margin shrinks for weeks, so rotate your routes. Tags beside a good (shortage, glut, contraband) explain themselves: hover or tap them.'],
         ['map', 'Sail', 'Visit the Harbor Office or press Set Sail, then pick a port on the chart. Hover a port to see the prices you saw there last. Harbor Offices post freight contracts that beat market prices if you make the deadline, and taverns whisper of smuggling jobs. Each nation bans some goods, and its navy patrols the approaches.'],
-        ['combat', 'Survive', 'Pirates and storms prowl the sea lanes. In battle, click an enemy to target it. Your cannons fire on their own, and special ammo can turn the tide. Outgunned? Flee. Now and then pirates seize a port and close its harbor: storm its fort and batteries to free it, for gold and gems.'],
-        ['shipyard', 'Grow', 'Rising net worth (cash + bank + cargo \u2212 debt) unlocks richer goods, new charts and bigger ships. Cannons cost hold space, so balance firepower against cargo. Every day at sea costs wages and provisions, and the moneylender charges 10% a month with loans due in 90 days.'],
+        ['combat', 'Survive', 'Pirates and storms prowl the sea lanes. In battle, click an enemy to target it. Your cannons fire on their own. Click a special shot to load it into the next cannon to fire: chain shot, fire pots and powder kegs can turn the tide. Outgunned? Flee. Now and then pirates seize a port and close its harbor: storm its fort and batteries to free it, for gold and gems.'],
+        ['shipyard', 'Grow', 'Rising net worth (cash + bank + cargo \u2212 debt) unlocks richer goods, new charts and bigger ships. Cannons cost hold space, so balance firepower against cargo. Every day at sea costs wages and provisions, and the moneylender charges 10% a month with loans due in 90 days. Shipyards sell fittings such as faster-firing cannons and bigger holds, and tavern traders sell curiosities, if you trust them.'],
       ];
       modal(`<h2>How to Play</h2>${rows.map(([img, title, text]) => `
         <div class="help-row">
@@ -1541,6 +1611,42 @@
     },
     'show-contracts': () => modal(`<h2>Your contracts</h2>${contractList('none')}`, [['Close', null, 'big']], 'wide'),
     'show-ship': () => showShip(),
+    'buy-curio': (b) => {
+      const offers = curiosAt(S.port), o = offers.find(x => x.id === b.dataset.id), c = o && TW.CURIO[o.id];
+      if (!c) return;
+      if (S.cash < o.price) { speak('broke'); return render(); }
+      S.cash -= o.price;
+      const variant = c.fake ? 'fake' : c.cursed && Math.random() < c.cursed.chance ? 'cursed' : 'true';
+      const it = { id: c.id, variant, paid: o.price };
+      (S.items || (S.items = [])).push(it);
+      offers.splice(offers.indexOf(o), 1);
+      log(`Bought a ${c.name} from a tavern trader in ${port().name} for ${fmt(o.price)} gold${variant === 'fake' ? '. It was a fake' : variant === 'cursed' ? '. It came with a catch' : ''}.`);
+      TW.sfx(variant === 'true' ? 'coins' : 'bad');
+      S.peakWorth = Math.max(S.peakWorth, worth()); save(); render();
+      modal(`<h2>${c.icon} ${c.name}</h2>
+        <p>${variant === 'fake' ? c.reveal : variant === 'cursed' ? 'It works, after a fashion. There is a catch.' : 'It works exactly as promised.'}</p>
+        <p><b>${curioDesc(it)}</b></p><p class="hint">Any curiosity trader will buy it back for half what you paid. See it in the Ship &amp; Captain sheet.</p>`,
+        [['Stow it aboard', null, 'big']]);
+    },
+    'buy-fitting': (b) => {
+      const f = TW.FITTING[b.dataset.id]; if (!f) return;
+      const price = TW.fittingPrice(f, TW.SHIP[S.ship.type]);
+      if (S.cash < price) { speak('cantAfford'); return render(); }
+      S.cash -= price;
+      S.ship.fittings = (S.ship.fittings || []).filter(id => id !== f.replaces).concat(f.id);
+      log(`Fitted ${f.name} to the ${shipName()} for ${fmt(price)} gold.`);
+      TW.sfx('hammer'); speak('repair'); toast(`${f.icon} <b>${f.name}</b> fitted.`, 'good'); save(); render();
+    },
+    'sell-curio': (b) => {
+      const i = +b.dataset.i, it = (S.items || [])[i]; if (!it) return;
+      const c = TW.CURIO[it.id], back = Math.round(it.paid / 2);
+      const without = S.items.filter((_, k) => k !== i), cargoAfter = Math.round(TW.SHIP[S.ship.type].cargo * mods(S.ship.fittings, without).cargo);
+      if (cargoAfter < usedSpace()) return toast(`Your hold is too full to give up the ${c.name}. Sell some cargo first.`, 'bad');
+      S.items = without; S.cash += back;
+      S.ship.hull = Math.min(S.ship.hull, shipDef().hull);
+      log(`Sold a ${c.name} back to a trader for ${fmt(back)} gold.`);
+      TW.sfx('coins'); save(); showShip();
+    },
     'show-log': () => modal(`<h2>Captain's Log</h2><div class="log modal-log">${S.log.slice(0, 20).map(l => `<p><small>${dateStr(l.day)}</small>${l.text}</p>`).join('')}</div>`, [['Close', null, 'big']]),
     'open-map': () => go('map'),
     'back-port': () => go('port'),
@@ -1555,9 +1661,10 @@
     'buy': (b) => trade('buy', b.dataset.good),
     'sell': (b) => trade('sell', b.dataset.good),
     'rumor': () => {
-      if (S.cash < 50) { speak('broke'); return render(); }
-      S.cash -= 50; TW.sfx('mug');
-      view.speech = { who: 'tavern', text: TW.line('tavern', 'rumor', talkContext()) + ' ' + TW.rumor(S).replace(/<[^>]+>/g, ''), id: Math.random() };
+      const cost = roundCost();
+      if (S.cash < cost) { speak('broke'); return render(); }
+      S.cash -= cost; TW.sfx('mug');
+      view.speech = { who: 'tavern', text: TW.line('tavern', 'rumor', talkContext()) + ' ' + TW.rumor(S, mods().rumorTrue).replace(/<[^>]+>/g, ''), id: Math.random() };
       render();
     },
     'chart': () => {
@@ -1572,7 +1679,7 @@
       speak('wait');
       if (S.mode === 'career' && S.day >= CAREER_DAYS) return go('end'); render(); },
     'repair': () => {
-      const d = shipDef(), rate = 40 + 15 * TW.SHIPS.indexOf(d);
+      const d = shipDef(), rate = 40 + 15 * TW.SHIPS.findIndex(x => x.id === d.id);
       const n = Math.min(d.hull - S.ship.hull, Math.floor(S.cash / rate));
       if (n <= 0) { speak('cantAfford'); return render(); }
       S.cash -= n * rate; S.ship.hull += n; toast(`Repaired ${n} hull for ${fmt(n * rate)} gold`); log(`Repaired the hull in ${port().name} for ${fmt(n * rate)} gold.`); TW.sfx('hammer'); speak('repair'); save(); render();
@@ -1606,10 +1713,12 @@
       const guns = Math.min(S.ship.guns, nd.guns);
       if (cargoQty() + guns * TW.GUN_SPACE > nd.cargo) return toast(`Your cargo won't fit in the ${nd.name}. Sell some first.`, 'bad');
       modal(`<h2>Buy the ${nd.name}?</h2><p>Price ${gold(price)}, less ${gold(tradeIn)} for your ${d.name}. You pay ${gold(cost)}.</p>
-        ${S.ship.guns > guns ? `<p>${S.ship.guns - guns} cannons won't fit and will be sold.</p>` : ''}`,
+        ${S.ship.guns > guns ? `<p>${S.ship.guns - guns} cannons won't fit and will be sold.</p>` : ''}
+        ${(S.ship.fittings || []).length ? `<p class="bad">Your fittings (${S.ship.fittings.map(id => TW.FITTING[id].name).join(', ')}) stay with the ${d.name}.</p>` : ''}`,
         [['Shake hands', () => {
           S.cash -= cost; S.cash += (S.ship.guns - guns) * TW.CANNON_PRICE / 2;
-          S.ship = { type: id, hull: nd.hull, guns, broken: Math.min(S.ship.broken, guns), cargo: S.ship.cargo };
+          S.ship = { type: id, hull: nd.hull, guns, broken: Math.min(S.ship.broken, guns), cargo: S.ship.cargo, fittings: [] };
+          S.ship.hull = shipDef().hull;   // curiosities like the Shield Doll still count
           S.offers[S.port] = S.offers[S.port].filter(o => o.id !== id);
           log(`Bought a ${nd.name}. A fine vessel!`); TW.sfx('bell'); speak('buyShip'); save(); render();
         }, 'big'], ['Cancel', null, 'ghost']]);

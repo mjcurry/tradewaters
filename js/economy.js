@@ -109,7 +109,8 @@
   };
 
   // A tavern rumor: prefer real active events, otherwise the most extreme price deviation.
-  TW.rumor = function (state) {
+  // `truthful` (the Bartender's Doll) always names a real shortage or glut when one exists.
+  TW.rumor = function (state, truthful) {
     const known = state.known.filter(id => id !== state.port);
     const goods = TW.GOODS.filter(g => TW.goodUnlocked(state, g));
     const events = [];
@@ -118,7 +119,7 @@
       if (e.kind) events.push({ pid, g, e });
     }
     let pick;
-    if (events.length && Math.random() < 0.75) pick = events[Math.floor(Math.random() * events.length)];
+    if (events.length && (truthful || Math.random() < 0.75)) pick = events[Math.floor(Math.random() * events.length)];
     else {
       let best = 0;
       for (const pid of known) for (const g of goods) {

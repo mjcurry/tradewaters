@@ -159,7 +159,8 @@
 
   Combat.start = function (canvas, setup, onEnd) {
     const ctx = canvas.getContext('2d');
-    const pShip = TW.SHIP[setup.ship.type];
+    // setup.stats carries the ship's effective numbers after fittings and curiosities.
+    const pShip = { ...TW.SHIP[setup.ship.type], ...(setup.stats || {}) };
     // At sea the pirates sit in a line to the right. In a port battle the fort and its
     // batteries stand on the headland and any pirate ships guard the water below it.
     const land = setup.enemies.filter(e => e.land), ships = setup.enemies.filter(e => !e.land);
@@ -178,8 +179,8 @@
       ctx, canvas, onEnd, enemies, guns, pShip,
       hull: setup.ship.hull, maxHull: pShip.hull,
       ammo: { ...setup.ammo }, target: 0, shots: [], fx: [], t: 0, shake: 0,
-      flee: null, fleeCooldown: 0, specialCd: 0, over: false, msg: null, msgT: 0,
-      px: 230, py: 420, booty: 0,
+      flee: null, fleeCooldown: 0, over: false, msg: null, msgT: 0,
+      px: 230, py: 420, booty: 0, enemyAim: setup.enemyAim ?? 1,
     };
     S.port = !!setup.port;
     S.bg = (S.port && TW.images.siege) || TW.images.combat;
@@ -223,7 +224,7 @@
 
   function update(dt) {
     S.t += dt; S.shake = Math.max(0, S.shake - dt * 3);
-    S.msgT -= dt; S.specialCd -= dt; S.fleeCooldown -= dt;
+    S.msgT -= dt; S.fleeCooldown -= dt;
     const target = aliveTarget();
     const fleeingAway = S.flee && S.flee.t > 0.6;
     // player guns
@@ -233,6 +234,7 @@
         g.t -= dt;
         if (g.t <= 0) {
           g.t = S.pShip.reload * rand(0.85, 1.15);
+          if (g.special) return fireSpecial(g, i, target);
           const hit = Math.random() < (target.land ? 0.9 : 0.72);   // walls are hard to miss
           shoot({ x: S.px + 40 + i * 4, y: S.py - 12 }, { x: target.x, y: target.y - 6 },
             { by: 'p', hit, dmg: 1, tgt: S.enemies.indexOf(target) });
@@ -248,7 +250,7 @@
         if (e.guns[i] <= 0) {
           e.guns[i] = e.reload * rand(0.85, 1.2);
           // Shore gunners are less accurate than pirate crews, and worse at a moving target.
-          const hitChance = (e.land ? 0.3 : 0.5) * (fleeingAway ? 0.6 : 1);
+          const hitChance = (e.land ? 0.3 : 0.5) * (fleeingAway ? 0.6 : 1) * S.enemyAim;
           const from = e.land ? { x: e.x - shipHalfW(e) * 0.7, y: e.y - shipTop(e) * 0.4 } : { x: e.x - 30, y: e.y - 8 };
           shoot(from, { x: S.px, y: S.py - 10 }, { by: 'e', hit: Math.random() < hitChance, dmg: 1 });
           if (Math.random() < 0.5) TW.sfx('cannonFar');
@@ -282,7 +284,7 @@
                 say(e.land ? `${e.name} ${['is silenced!', 'crumbles!', 'falls quiet!'][Math.floor(Math.random() * 3)]}` : `${e.name} is going down!`);
               }
             }
-            TW.sfx(s.special ? 'boom' : 'hitFar');
+            TW.sfx(s.special ? IMPACT_SFX[s.special] : 'hitFar');
           } else { S.fx.push({ kind: 'splash', x: s.x1 + rand(-30, 30), y: s.y1 + 20, t: 0, life: 0.9 }); if (Math.random() < 0.35) TW.sfx('splash'); }
         }
       }
@@ -321,17 +323,34 @@
     setTimeout(() => cb(res), 700);
   }
 
+  // Special shot is rammed into whichever working cannon will fire next and goes off with
+  // that gun's next shot; each click loads one more gun. Shot is only spent when it fires,
+  // so anything still loaded when the battle ends goes back in the locker.
+  const SHOT_COLOR = { chain: '#c9d1d6', fire: '#ff8a3d', keg: '#ffd23d' };
+  const LAUNCH_SFX = { chain: 'chainShot', fire: 'cannon', keg: 'fuse' };
+  const IMPACT_SFX = { chain: 'hit', fire: 'firePot', keg: 'boom' };
+  const loadedCount = id => S.guns.filter(g => g.special === id).length;
+  const available = id => (S.ammo[id] || 0) - loadedCount(id);
   Combat.special = function (id) {
-    if (!S || S.over || S.specialCd > 0 || !S.ammo[id]) return;
-    const a = TW.AMMO_BY[id], target = aliveTarget();
-    if (!target) return;
-    S.ammo[id]--; S.specialCd = 2.5;
-    const list = a.all ? S.enemies.filter(e => e.alive) : [target];
-    list.forEach((e, k) => shoot({ x: S.px + 50, y: S.py - 20 }, { x: e.x, y: e.y - 10 },
-      { by: 'p', special: id, all: false, dmg: a.dmg, tgt: S.enemies.indexOf(e), dur: 1 + k * 0.08, arc: 110 }));
-    TW.sfx('cannon');
+    if (!S || S.over || available(id) <= 0) return;
+    const free = S.guns.filter(g => !g.broken && !g.special);
+    if (!free.length) { say(S.guns.some(g => !g.broken) ? 'Every gun is already loaded!' : 'No working cannon to load!'); return; }
+    const g = free.reduce((a, b) => (b.t < a.t ? b : a));
+    g.special = id;
+    TW.sfx('load');
+    say(`${TW.AMMO_BY[id].name} loaded`);
     Combat.refreshButtons();
   };
+  function fireSpecial(g, i, target) {
+    const id = g.special, a = TW.AMMO_BY[id];
+    g.special = null; S.ammo[id]--;
+    const list = a.all ? S.enemies.filter(e => e.alive) : [target];
+    list.forEach((e, k) => shoot({ x: S.px + 40 + i * 4, y: S.py - 14 }, { x: e.x, y: e.y - 10 },
+      { by: 'p', special: id, all: false, dmg: a.dmg, tgt: S.enemies.indexOf(e), dur: 1 + k * 0.08, arc: 110 }));
+    TW.sfx(LAUNCH_SFX[id]);
+    say(`${a.name} away!`);
+    Combat.refreshButtons();
+  }
 
   Combat.flee = function () {
     if (!S || S.over || S.flee || S.fleeCooldown > 0) return;
@@ -348,7 +367,12 @@
     if (!S) return;
     for (const a of TW.AMMO) {
       const b = document.getElementById('ammo-' + a.id);
-      if (b) { b.querySelector('.n').textContent = S.ammo[a.id] || 0; b.disabled = !S.ammo[a.id]; }
+      if (b) {
+        const loaded = loadedCount(a.id), left = available(a.id);
+        b.querySelector('.n').textContent = left + (loaded ? ` +${loaded} loaded` : '');
+        b.disabled = left <= 0;
+        b.classList.toggle('armed', loaded > 0);
+      }
     }
     const f = document.getElementById('btn-flee');
     if (f) f.disabled = !!S.flee;
@@ -427,8 +451,9 @@
       const f = 1 - Math.max(0, g.t) / S.pShip.reload;
       ctx.fillStyle = '#334'; ctx.fillRect(x, y, 9, 9);
       ctx.fillStyle = f >= 0.98 ? '#f2b84b' : '#8aa'; ctx.fillRect(x, y + 9 * (1 - f), 9, 9 * f);
+      if (g.special) { ctx.strokeStyle = SHOT_COLOR[g.special]; ctx.lineWidth = 2; ctx.strokeRect(x - 1.5, y - 1.5, 12, 12); }
     });
-    if (!S.guns.length) { ctx.fillStyle = '#f2b84b'; ctx.font = '14px "IM Fell English SC", Georgia'; ctx.fillText('No cannons! Flee or use special ammo.', 28, 70); }
+    if (!S.guns.length) { ctx.fillStyle = '#f2b84b'; ctx.font = '14px "IM Fell English SC", Georgia'; ctx.fillText('No cannons! Special shot needs a gun to fire it. Flee!', 28, 70); }
     if (S.msgT > 0) {
       ctx.globalAlpha = Math.min(1, S.msgT);
       ctx.font = '30px "Pirata One", Georgia'; ctx.textAlign = 'center';

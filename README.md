@@ -63,7 +63,8 @@ It keeps the core of the classics: **buy low, sell high, and survive the pirates
 - 🗺️ **A living sea chart.** An old parchment chart with water-lined coasts, rhumb lines, a swaying compass needle, a sea serpent and other ships working the lanes. Routes are found with A* pathfinding around coastlines traced from real geography.
 - 🎬 **Smooth transitions.** Step through a building's door, unroll the chart, and dive down onto a port as you make landfall.
 - 🔊 **Recorded sound.** Cannon fire, splintering hulls, creaking doors, anchor chains, harbor and open-sea ambience, generated with ElevenLabs.
-- ⚔️ **Real-time naval combat** with Chain Shot, Fire Pots and Powder Kegs. Or flee, if you're outgunned.
+- ⚔️ **Real-time naval combat.** Load Chain Shot, Fire Pots and Powder Kegs into the next cannon to fire, each with its own sound. Or flee, if you're outgunned.
+- 🪆 **Curiosities and fittings.** Tavern traders sell charms after the magic dolls of Tradewinds 2 (some genuine, some with a catch, some fakes) and shipyards sell fittings: speed and heavy cannons, reinforced oak, bigger holds, evasive rigging and the Ultimate Compass.
 - 🏰 **Hostile ports.** Now and then pirates seize a port and close its harbor. Storm its fortress and gun batteries to free it, for gold and gems.
 - 🚢 **Seven ships,** from sloop to man-o-war. Every cannon costs cargo space, so choose between firepower and profit. Open the Ship & Captain sheet in any port to name your ship, compare its specs, price your cargo and review your record.
 - 💰 **Bank, moneylender, sea charts and rumors.** The bank pays about 20% a year and covers wages when your purse is empty; the moneylender charges 10% a month and sends collectors after overdue loans.
