@@ -184,7 +184,7 @@
   function deliverContracts() {
     const lines = [];
     for (const c of contracts().filter(c => c.to === S.port)) {
-      if (c.kind !== 'courier') {
+      if (c.good) {   // dispatches and passengers need no cargo
         const held = S.ship.cargo[c.good]?.qty || 0;
         if (held < c.qty) { lines.push(`<li class="warn">${TW.contractIcon(c)} ${TW.describeContract(c)}: you have ${held} of ${c.qty}. Bring the rest by ${dateStr(c.due)}.</li>`); continue; }
         S.ship.cargo[c.good].qty -= c.qty;
@@ -200,13 +200,16 @@
   }
   function contractCard(c, action) {
     const days = c.due - S.day;
-    const held = c.kind === 'courier' ? null : (S.ship.cargo[c.good]?.qty || 0);
+    const held = c.good ? (S.ship.cargo[c.good]?.qty || 0) : null;
+    const tags = (c.urgent ? `<span class="tagx urgent" ${tip('<b>Urgent.</b> Only a little time beyond the sailing itself, but it pays about 45% more.')}>urgent</span>` : '')
+      + (c.risky ? `<span class="tagx risky" ${tip(`<b>Pirates are watching.</b> Word of this job has leaked along the waterfront. Pirates are much likelier to come for you on the voyage to ${TW.PORT[c.to].name}, so it pays about 35% more.`)}>pirates watching</span>` : '');
     return `<div class="contract ${c.kind}">
       <span class="c-ico">${TW.contractIcon(c)}</span>
-      <div class="c-body"><b>${TW.describeContract(c)}</b>
-        <small>For ${c.issuer} · due ${dateStr(c.due)} (${days} days)${c.bond ? ` · ${fmt(c.bond)} g bond if late` : ''}${held !== null && action !== 'take' ? ` · in hold: ${held}/${c.qty}` : ''}</small></div>
+      <div class="c-body"><span class="c-title"><b>${TW.describeContract(c)}</b>${tags}</span>
+        ${c.note ? `<i class="c-note">“${esc(c.note)}”</i>` : ''}
+        <small>For ${esc(c.issuer)} · due ${dateStr(c.due)} (${days} days)${c.bond ? ` · ${fmt(c.bond)} g bond if late` : ''}${held !== null && action !== 'take' ? ` · in hold: ${held}/${c.qty}` : ''}</small></div>
       <span class="c-reward">${gold(c.reward)}</span>
-      ${action === 'take' ? `<button data-act="take-contract" data-id="${c.id}" data-where="${c.kind === 'smuggle' ? 'tavern' : 'harbor'}" ${contracts().length >= TW.MAX_CONTRACTS ? 'disabled title="You already hold three contracts"' : ''}>Accept</button>`
+      ${action === 'take' ? `<button data-act="take-contract" data-id="${c.id}" data-where="${TW.contractWhere(c)}" ${contracts().length >= TW.MAX_CONTRACTS ? 'disabled title="You already hold three contracts"' : ''}>Accept</button>`
         : action === 'abandon' ? `<button class="ghost" data-act="abandon-contract" data-id="${c.id}">Abandon</button>` : ''}
     </div>`;
   }
@@ -889,6 +892,7 @@
     const warn = [];
     if (S.ship.hull < d.hull * 0.5) warn.push('Your hull is badly damaged.');
     if (!S.ship.guns) warn.push('You carry no cannons. Pirates will find you easy prey.');
+    if (contracts().some(c => c.risky && c.to === p.id)) warn.push(`Word of your job for ${p.name} has spread. Pirates are watching for you.`);
     if (isHostile(p.id)) warn.push(`${hostile()[p.id].captain}'s pirates hold ${p.name}. You'll have to fight past its fort to dock.`);
     const contraband = bannedAboard(p.id);
     if (contraband.length) warn.push(`${contraband.map(id => TW.GOOD[id].name).join(' and ')} ${contraband.length > 1 ? 'are' : 'is'} contraband in ${p.name}. Navy patrols may stop you.`);
@@ -927,7 +931,8 @@
     const events = [];
     if (Math.random() < 0.12 * scale) events.push({ t: rand(0.2, 0.8), kind: 'storm' });
     // Fewer but tougher encounters; a fuller hold draws more attention.
-    const pirateChance = 0.18 * scale * (cargoQty() ? 0.75 + 0.5 * usedSpace() / shipDef().cargo : 0.5);
+    const watched = contracts().some(c => c.risky && c.to === dest);   // a leaked job draws pirates
+    const pirateChance = 0.18 * scale * (cargoQty() ? 0.75 + 0.5 * usedSpace() / shipDef().cargo : 0.5) + (watched ? 0.2 : 0);
     if (Math.random() < pirateChance) events.push({ t: rand(0.25, 0.85), kind: 'pirates' });
     if (Math.random() < 0.05) events.push({ t: rand(0.2, 0.8), kind: 'flotsam' });
     // Navy patrols watch the approaches to ports that ban goods you are carrying.
@@ -1430,7 +1435,7 @@
       const c = TW.takeOffer(S, S.port, b.dataset.where, b.dataset.id);
       if (!c) return;
       log(`Accepted a contract: ${TW.describeContract(c).toLowerCase()} by ${dateStr(c.due)} for ${fmt(c.reward)} gold.`);
-      speak(c.kind === 'smuggle' ? 'smuggle' : 'contract'); TW.sfx('quill'); save(); render();
+      speak(TW.contractWhere(c) === 'tavern' ? 'smuggle' : 'contract'); TW.sfx('quill'); save(); render();
     },
     'abandon-contract': (b) => {
       const c = contracts().find(x => x.id === b.dataset.id); if (!c) return;
