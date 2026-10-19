@@ -630,7 +630,7 @@
       const avg = S.ship.cargo[g.id]?.cost;
       const pl = held && avg ? Math.round((sell - avg) / avg * 100) : null;
       return `<tr data-good="${g.id}">
-        <td>${g.icon} <b>${g.name}</b>${e.kind ? `<span class="tagx ${e.kind}">${e.kind}</span>` : ''}${TW.banned(S.port, g.id) ? '<span class="tagx contraband" title="Banned here. You can sell on the black market, but you cannot buy, and patrols watch for it.">contraband</span>' : ''}${locked ? `<span class="tagx sellonly" title="Captured goods. Merchants will buy them from you, but won't sell ${g.name.toLowerCase()} to you until ${fmt(g.unlock)} net worth.">sell only</span>` : ''}</td>
+        <td>${g.icon} <b>${g.name}</b>${e.kind ? `<span class="tagx ${e.kind}" ${tip(eventTip(e.kind, g))}>${e.kind}</span>` : ''}${TW.banned(S.port, g.id) ? `<span class="tagx contraband" ${tip(contrabandTip(g))}>contraband</span>` : ''}${locked ? `<span class="tagx sellonly" ${tip(`<b>Sell only.</b> These are captured goods. Merchants here will buy them from you, but won't sell ${g.name.toLowerCase()} to you until your net worth reaches ${gold(g.unlock)}.`)}>sell only</span>` : ''}</td>
         <td class="${priceClass(g, buy)}">${fmt(buy)}</td>
         <td class="${priceClass(g, sell)}">${fmt(sell)}</td>
         <td>${stock || '<i class="muted">none</i>'}</td>
@@ -653,6 +653,22 @@
   // Live totals on a row's Buy and Sell buttons as the quantity is typed. Shows the
   // quantity actually traded when stock, hold space or cargo held caps the order.
   const stockOf = e => Math.floor(e.stock);
+
+  // Explanations for the market's tags (shown by the tooltip helper below).
+  function contrabandTip(g) {
+    const nation = TW.nationOf(S.port).name, good = g.name.toLowerCase();
+    return `<b>Contraband in ${nation} ports.</b> The ${nation} crown bans ${good}. You can still sell it here on the black market, but nobody will sell it to you.
+      <br><br>Sail into any ${nation} port with ${good} aboard and a navy patrol may stop you: submit and lose the cargo plus a fine, offer a bribe, or try to outrun them.
+      <br><br>Taverns sometimes offer smuggling jobs that pay well for running it in.`;
+  }
+  function eventTip(kind, g) {
+    const good = g.name.toLowerCase();
+    return kind === 'shortage'
+      ? `<b>Shortage.</b> ${port().name} has run short of ${good}, so it pays well above the usual price for a few weeks. A good time to sell here.`
+      : `<b>Glut.</b> ${port().name} is overflowing with ${good}, so it's cheap for a few weeks. A good time to buy here.`;
+  }
+  // Markup that gives an element a tooltip: hover, keyboard focus or a tap shows it.
+  const tip = html => `tabindex="0" role="note" data-tip="${esc(html.replace(/\s+/g, ' '))}"`;
 
   function showRowQuote(el, id, value) {
     const q = Math.max(0, Math.floor(+value || 0));
@@ -1329,6 +1345,40 @@
   function amount() { return Math.max(0, Math.floor(+($('#amt')?.value) || 0)); }
 
   // ---------- actions ----------
+  // ---------- tooltips ----------
+  // Elements with data-tip explain themselves in a small floating card: on hover, on
+  // keyboard focus, or on a tap for touch screens. The card lives on <body> so scrolling
+  // panels can't clip it.
+  const hintEl = document.createElement('div');
+  hintEl.className = 'hint-tip'; hintEl.hidden = true; hintEl.setAttribute('role', 'tooltip');
+  document.body.appendChild(hintEl);
+  let hintFor = null;
+  function showHint(t) {
+    hintFor = t;
+    hintEl.innerHTML = t.dataset.tip;
+    hintEl.hidden = false;
+    const r = t.getBoundingClientRect(), w = hintEl.offsetWidth, h = hintEl.offsetHeight;
+    const x = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2));
+    const above = r.top - h - 10 > 8;
+    hintEl.style.left = x + 'px';
+    hintEl.style.top = (above ? r.top - h - 10 : r.bottom + 10) + 'px';
+    hintEl.classList.toggle('below', !above);
+  }
+  function hideHint() { hintFor = null; hintEl.hidden = true; }
+  document.addEventListener('mouseover', ev => { const t = ev.target.closest('[data-tip]'); if (t && t !== hintFor) showHint(t); });
+  document.addEventListener('mouseout', ev => {
+    const t = ev.target.closest('[data-tip]');
+    if (t && !(ev.relatedTarget && t.contains(ev.relatedTarget))) hideHint();
+  });
+  document.addEventListener('focusin', ev => { const t = ev.target.closest('[data-tip]'); if (t) showHint(t); });
+  document.addEventListener('focusout', ev => { if (ev.target.closest('[data-tip]')) hideHint(); });
+  document.addEventListener('click', ev => {
+    const t = ev.target.closest('[data-tip]');
+    if (t) { if (hintFor === t && !hintEl.hidden) hideHint(); else showHint(t); }
+    else if (hintFor) hideHint();
+  }, true);
+  document.addEventListener('scroll', () => hintFor && hideHint(), true);
+
   const actions = {
     'begin': () => openGate(),
     'new': () => go('newgame'),
@@ -1346,7 +1396,7 @@
       // Each section pairs a gameplay screenshot with a short tip; click a picture to enlarge it.
       const rows = [
         ['city', 'Explore the port', 'Every port has its own harbor. Click a building on the quay to step inside and meet its keeper. They have opinions about your ship, your debts and your cargo.'],
-        ['market', 'Trade', 'Each port makes some goods cheaply and pays dearly for others. Buy where prices are <span class="cheap">green</span> and sell where they are <span class="dear">red</span>. Big trades move the price, and ports remember: run the same route again and again and its margin shrinks for weeks, so rotate your routes.'],
+        ['market', 'Trade', 'Each port makes some goods cheaply and pays dearly for others. Buy where prices are <span class="cheap">green</span> and sell where they are <span class="dear">red</span>. Big trades move the price, and ports remember: run the same route again and again and its margin shrinks for weeks, so rotate your routes. Tags beside a good (shortage, glut, contraband) explain themselves: hover or tap them.'],
         ['map', 'Sail', 'Visit the Harbor Office or press Set Sail, then pick a port on the chart. Hover a port to see the prices you saw there last. Harbor Offices post freight contracts that beat market prices if you make the deadline, and taverns whisper of smuggling jobs. Each nation bans some goods, and its navy patrols the approaches.'],
         ['combat', 'Survive', 'Pirates and storms prowl the sea lanes. In battle, click an enemy to target it. Your cannons fire on their own, and special ammo can turn the tide. Outgunned? Flee. Now and then pirates seize a port and close its harbor: storm its fort and batteries to free it, for gold and gems.'],
         ['shipyard', 'Grow', 'Rising net worth (cash + bank + cargo \u2212 debt) unlocks richer goods, new charts and bigger ships. Cannons cost hold space, so balance firepower against cargo. Every day at sea costs wages and provisions, and the moneylender charges 10% a month with loans due in 90 days.'],

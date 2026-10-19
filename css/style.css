@@ -332,6 +332,15 @@ table.market .trade button.sell { background: var(--coral); }
 .kv .ammo-buy { flex: none; white-space: nowrap; min-width: 9rem; text-align: center; }
 .tagx.contraband { background: #5a2a5a; }
 .tagx.sellonly { background: #8a6a1e; }
+/* Tags that explain themselves: a small "?" badge and a help cursor. */
+.tagx[data-tip] { cursor: help; }
+.tagx[data-tip]::after { content: '?'; display: inline-block; margin-left: 0.3rem; width: 0.85rem; height: 0.85rem; line-height: 0.85rem;
+  border-radius: 50%; background: rgba(255,255,255,0.3); text-align: center; font-size: 0.55rem; font-weight: 700; letter-spacing: 0; }
+.tagx[data-tip]:focus-visible { outline: 2px solid var(--gold, #f2b84b); outline-offset: 2px; }
+.hint-tip { position: fixed; z-index: 1100; max-width: 19rem; padding: 0.7rem 0.85rem; border-radius: 0.5rem;
+  background: #1d3446; color: #f6efdc; font-size: 0.85rem; line-height: 1.4; box-shadow: 0 0.5rem 1.4rem rgba(0,0,0,0.35);
+  pointer-events: none; animation: pop 0.15s ease-out; }
+.hint-tip b { color: #f2c66b; }
 /* Contract cards (Harbor Office, Tavern, Contracts dialog) */
 .contract { display: flex; align-items: center; gap: 0.7rem; padding: 0.55rem 0.7rem; margin: 0.4rem 0; border-radius: 0.55rem;
   background: rgba(255,255,255,0.55); border: 1px solid rgba(19,50,74,0.14); }
