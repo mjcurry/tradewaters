@@ -56,7 +56,7 @@ It keeps the core of the classics: **buy low, sell high, and survive the pirates
 
 ## Features
 
-- 🏝️ **20 real Caribbean ports,** each with a hand-painted city view and its own architecture, from Spanish Havana to Danish St. Thomas.
+- 🏝️ **20 real Caribbean ports,** each with a hand-painted city view and its own architecture, from Spanish Havana to Danish St. Thomas. Sailors, merchants, market women, soldiers, porters and stray dogs go about their business on every quay.
 - 🎭 **95 unique keepers,** one in every building of every port, each with their own portrait, personality and lines. Meet a Maya cotton trader in Mérida, a Danish innkeeper in St. Thomas and a retired pirate lending money in Port Royal. They react to your debts, your cargo and the state of your hull.
 - 📈 **A living economy.** Every port makes some goods cheaply and pays dearly for others. Prices drift daily, shortages and gluts come and go, and your trading leaves a lasting mark, so the same route can't be milked forever.
 - 🧾 **Contracts and contraband.** Harbor Offices post freight, courier and passenger contracts with deadlines and bonds; taverns offer smuggling runs and passengers who'd rather not be asked questions. Every job has its own client and reason, and some are urgent or have pirates watching, for bigger pay. Each nation bans certain goods, and its navy patrols the approaches, so you can submit, bribe or run.
@@ -109,6 +109,7 @@ number in `index.html` so returning players get the new files.
 | `js/combat.js` | Real-time battle loop and ship drawing |
 | `js/audio.js` | Recorded sound effects (with synthesized stand-ins), ambience loops and the music player |
 | `js/titlefx.js` | Title-screen gulls and water glints |
+| `js/folk.js` | Townsfolk walking the quay in port city views |
 | `assets/img/` | Title, interiors, battle and siege backdrops, ports, buildings, ships, forts, chart art, portraits and help screenshots |
 | `assets/sfx/` | Sound effects and ambience loops (generated with ElevenLabs) |
 | `assets/video/title.mp4` | Looping animated title backdrop |

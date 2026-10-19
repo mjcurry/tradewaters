@@ -59,6 +59,8 @@ button { font-family: var(--font-ui); font-weight: 500; letter-spacing: 0.02em; 
 /* Screen transitions (see transition() in game.js). The ghost is a snapshot of the old
    view laid over the new one: it plays the exit while #screen plays the entrance. */
 .city-scene.scene-pending { opacity: 0; transition: none; }
+/* Townsfolk (z-index set per port in folk.js) */
+.city-scene canvas.folk { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .t-ghost { position: fixed; margin: 0; overflow: hidden; pointer-events: none; z-index: 900; }
 .t-ghost > * { width: 100%; height: 100%; margin: 0; }
 .t-out-fade     { animation: t-fade-out 0.45s ease both; }
@@ -241,16 +243,20 @@ input, select { border: 1px solid rgba(19,50,74,0.3); border-radius: 0.4375rem; 
   background: radial-gradient(closest-side, rgba(255, 214, 120, 0.85), rgba(255, 214, 120, 0.35) 55%, transparent);
   opacity: 0; transition: opacity 0.18s ease;
 }
-.bld:hover:not(:disabled) { background: none; transform: translateX(-50%) translateY(-3%) scale(1.04); }
-.bld:hover::before { opacity: 1; }
+.bld:hover:not(:disabled), .bld.lit { background: none; transform: translateX(-50%) translateY(-3%) scale(1.04); }
+.bld:hover::before, .bld.lit::before { opacity: 1; }
 .bld:focus-visible { outline: 3px solid var(--gold); outline-offset: 4px; }
 .bld img { height: 100%; width: auto; display: block; pointer-events: none; user-select: none; filter: drop-shadow(0 0.4rem 0.4rem rgba(20, 30, 40, 0.25)); }
+/* Name signs live on their own layer above the townsfolk, hung just below each building's base. */
+.bld-signs { position: absolute; inset: 0; z-index: 95; pointer-events: none; }
 .bld-sign {
-  position: absolute; bottom: -0.9rem; white-space: nowrap; font-family: var(--font-ui); font-weight: 700; font-size: 0.95rem;
+  --drop: 0.9rem; position: absolute; transform: translate(-50%, calc(var(--drop) - 100%)); pointer-events: auto; cursor: pointer; white-space: nowrap; font-family: var(--font-ui); font-weight: 700; font-size: 0.95rem;
   background: var(--cream); color: var(--navy); padding: 0.1rem 0.6rem; border-radius: 0.3rem; border: 2px solid #8a6a3e;
   box-shadow: 0 0.2rem 0.4rem rgba(0,0,0,0.25); transition: background 0.18s, color 0.18s;
 }
-.bld:hover .bld-sign { background: var(--gold); }
+.bld-sign:hover, .city-scene:has(.bld-market:hover) .bld-sign[data-place="market"], .city-scene:has(.bld-tavern:hover) .bld-sign[data-place="tavern"],
+.city-scene:has(.bld-shipyard:hover) .bld-sign[data-place="shipyard"], .city-scene:has(.bld-bank:hover) .bld-sign[data-place="bank"],
+.city-scene:has(.bld-lender:hover) .bld-sign[data-place="lender"], .city-scene:has(.bld-harbor:hover) .bld-sign[data-place="harbor"] { background: var(--gold); }
 .city-bar { display: flex; gap: 0.6rem; align-items: center; flex-wrap: nowrap; justify-content: center; width: min(100%, calc((100vh - 10.5rem) * 16 / 9)); }
 .city-bar .mini { display: flex; flex-direction: column; gap: 0.15rem; color: var(--cream); font-size: 1.05rem; margin-right: auto; min-width: 0; }
 .city-bar .mini-row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: baseline; }
@@ -485,7 +491,7 @@ table.market .trade button.sell { background: var(--coral); }
   .city-sign { top: 2%; padding: 0.15rem 0.7rem 0.25rem; }
   .city-sign span { font-size: 1.15rem; }
   .city-sign small { font-size: 0.7rem; }
-  .bld-sign { font-size: 0.6rem; padding: 0 0.3rem; bottom: -0.6rem; }
+  .bld-sign { font-size: 0.6rem; padding: 0 0.3rem; --drop: 0.6rem; }
 }
 
 /* ---------- Ship & Captain sheet ---------- */

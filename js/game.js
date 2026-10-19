@@ -478,8 +478,9 @@
             <button class="bld bld-${b.id}" data-act="enter" data-place="${b.id}" aria-label="${BUILDINGS[b.id].label}"
               style="left:${(b.x * 100).toFixed(2)}%; top:${((b.base - b.h) * 100).toFixed(2)}%; height:${(b.h * 100).toFixed(2)}%; z-index:${Math.round(b.base * 100)}">
               <img src="assets/img/buildings/${style}-${b.id}.png" alt="" draggable="false">
-              <span class="bld-sign">${BUILDINGS[b.id].label}</span>
             </button>`).join('')}
+          <div class="bld-signs" aria-hidden="true">${cityLayout(p).map(b => `<span class="bld-sign" data-act="enter" data-place="${b.id}"
+            style="left:${(b.x * 100).toFixed(2)}%; top:${(b.base * 100).toFixed(2)}%">${BUILDINGS[b.id].label}</span>`).join('')}</div>
         </div>
         <div class="city-bar">
           <div class="mini" data-act="show-ship" role="button" tabindex="0" title="Your ship and record">
@@ -493,6 +494,16 @@
       </div>`;
     // On a first visit the scene may still be downloading: keep the whole view hidden
     // until it has decoded, rather than showing buildings over an empty sky.
+    // Building name signs sit on their own layer above the townsfolk; hovering one lifts
+    // its building just as hovering the building lights the sign.
+    el.querySelectorAll('.bld-signs .bld-sign').forEach(sign => {
+      const b = el.querySelector(`.bld[data-place="${sign.dataset.place}"]`);
+      sign.onmouseenter = () => b.classList.add('lit');
+      sign.onmouseleave = () => b.classList.remove('lit');
+    });
+    // Townsfolk on the quay, kept clear of the harbor pier (same side rule as cityLayout).
+    const folkBox = el.querySelector('.city-scene'), quay = city.quay || 0.78;
+    if (TW.startFolk) TW.startFolk(folkBox, { quay, harborLeft: city.harbor ? city.harbor === 'left' : hash(p.id) % 2 === 0 });
     const scene = preloadScene(p.id);
     if (!scene.ready) {
       const box = el.querySelector('.city-scene');
@@ -1588,7 +1599,7 @@
     'toggle-music': () => { TW.toggleAudio('music'); hud(); },
     'enter': (b) => {
       view.place = b.dataset.place; view.speech = null;
-      view.doorway = originOf(b.getBoundingClientRect());
+      view.doorway = originOf(($(`.bld[data-place="${b.dataset.place}"]`) || b).getBoundingClientRect());
       TW.music(view.place === 'tavern' ? 'tavern' : 'port');
       TW.sfx('door');
       transition('enter', render, view.doorway);
@@ -1785,6 +1796,7 @@
     ]);
     TW.initMap();
     TW.loadSfx();   // not awaited: until a sample decodes, its synthesized stand-in plays
+    TW.loadFolk();  // not awaited either: townsfolk appear once their sprites are in
     await Promise.all([loadImages(), TW.loadShipArt(), TW.loadMapArt()]);
     predecodeBuildings();
     go('title');
