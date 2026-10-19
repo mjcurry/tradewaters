@@ -478,3 +478,51 @@ table.market .trade button.sell { background: var(--coral); }
   .city-sign small { font-size: 0.7rem; }
   .bld-sign { font-size: 0.6rem; padding: 0 0.3rem; bottom: -0.6rem; }
 }
+
+/* ---------- Ship & Captain sheet ---------- */
+.city-bar .mini[data-act] { cursor: pointer; border-radius: 0.4rem; padding: 0.15rem 0.4rem; transition: background 0.15s; }
+.city-bar .mini[data-act]:hover { background: rgba(255,248,230,0.1); }
+button.link { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+button.link:hover { color: var(--teal); }
+.modal-box.ship-sheet { width: min(72rem, 100%); padding: 0; }
+.ship-sheet > .row { padding: 0 1.4rem 1.2rem; }
+.ship-hero { position: relative; }
+.ship-hero canvas { display: block; width: 100%; height: auto; aspect-ratio: 3 / 1; border-radius: var(--radius) var(--radius) 0 0; }
+.ship-title { position: absolute; left: 1.4rem; top: 1rem; display: flex; flex-direction: column; color: var(--navy); }
+.ship-title label { font-family: var(--font-old); font-style: italic; font-size: 1rem; }
+.ship-title input { font-family: var(--font-display); font-size: 2.4rem; line-height: 1; color: var(--navy); background: transparent; border: 0;
+  border-bottom: 2px dashed transparent; padding: 0; width: 18ch; }
+.ship-title input:hover, .ship-title input:focus { border-bottom-color: rgba(19,50,74,0.4); outline: none; }
+.ship-title small { font-family: var(--font-old); font-size: 1rem; }
+.ship-grid { display: grid; grid-template-columns: 1fr 1.25fr 1fr; gap: 1.4rem; padding: 0.6rem 1.4rem 0; }
+.ship-grid h3 small { font-size: 0.8rem; color: var(--muted); font-weight: normal; }
+.ship-grid h4 { margin: 0.9rem 0 0.3rem; font-size: 0.95rem; }
+.spec { display: grid; grid-template-columns: 5.5rem 1fr auto; gap: 0.6rem; align-items: center; padding: 0.25rem 0; font-size: 0.95rem; }
+.spec b { font-size: 0.85rem; white-space: nowrap; }
+.meter { height: 0.55rem; background: rgba(19,50,74,0.15); border-radius: 0.3rem; overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--teal); border-radius: 0.3rem; }
+.meter.low i { background: var(--bad); }
+.hold-split { display: flex; height: 1.1rem; border-radius: 0.3rem; overflow: hidden; margin: 0.1rem 0 0.4rem 6.1rem; font-size: 0.65rem; color: #fff; }
+.hold-split span { display: flex; align-items: center; padding: 0 0.3rem; white-space: nowrap; overflow: hidden; min-width: 0; }
+.hold-split .c { background: #23707b; } .hold-split .g { background: #6b4a2b; } .hold-split .f { background: rgba(19,50,74,0.2); color: var(--ink); }
+table.manifest { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+table.manifest th { text-align: left; font-size: 0.75rem; color: var(--muted); font-weight: normal; border-bottom: 1px solid rgba(19,50,74,0.15); padding: 0.2rem 0.3rem; }
+table.manifest td { padding: 0.3rem; border-bottom: 1px dashed rgba(19,50,74,0.1); }
+table.manifest td:not(:first-child), table.manifest th:not(:first-child) { text-align: right; }
+.mini-contract { font-size: 0.85rem; padding: 0.15rem 0; }
+.rank { padding: 0.2rem 0 0.5rem; }
+.rank b { font-family: var(--font-head); font-size: 1.15rem; color: var(--navy); display: block; margin-bottom: 0.3rem; }
+.rank small { color: var(--muted); }
+.ladder-head { margin: 1rem 1.4rem 0.4rem; }
+.ship-ladder { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.6rem; padding: 0 1.4rem 1rem; }
+.rung { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 0.4rem; border-radius: 0.5rem; background: rgba(19,50,74,0.05); line-height: 1.2; }
+.rung canvas { width: 100%; height: auto; aspect-ratio: 240 / 130; border-radius: 0.35rem; background: linear-gradient(#cfe7ea, #9fcdd4 88%, #4f97a6 88%); }
+.rung b { font-size: 0.9rem; margin-top: 0.3rem; }
+.rung small { font-size: 0.72rem; color: var(--muted); }
+.rung.mine { background: rgba(242,184,75,0.25); outline: 2px solid var(--gold, #f2b84b); }
+.rung.locked canvas { filter: grayscale(0.8) brightness(0.9); opacity: 0.6; }
+@media (max-width: 900px) {
+  .ship-grid { grid-template-columns: 1fr; }
+  .ship-ladder { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .ship-title input { font-size: 1.8rem; }
+}

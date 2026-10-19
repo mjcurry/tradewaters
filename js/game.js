@@ -466,9 +466,10 @@
             </button>`).join('')}
         </div>
         <div class="city-bar">
-          <div class="mini"><b>${d.name}</b>
+          <div class="mini" data-act="show-ship" role="button" tabindex="0" title="Your ship and record"><b>${d.name}</b>
             <span>Hull ${S.ship.hull}/${d.hull}</span><span>Hold ${usedSpace()}/${d.cargo}</span><span>Cannons ${S.ship.guns}</span></div>
           <button class="ghost" data-act="show-contracts">🧾 Contracts (${contracts().length})</button>
+          <button class="ghost" data-act="show-ship">⚓ Ship &amp; Captain</button>
           <button class="ghost" data-act="show-log">📜 Captain's Log</button>
           <button class="sail" data-act="open-map">⛵ Set Sail</button>
         </div>
@@ -603,7 +604,7 @@
     const d = shipDef(), used = usedSpace();
     const cargo = Object.entries(S.ship.cargo).filter(([, c]) => c.qty > 0);
     return `<div class="panel card">
-      <h3>${d.name}</h3>
+      <h3><button class="link" data-act="show-ship" title="Your ship and record">${d.name} ›</button></h3>
       <div class="bar"><span style="width:${100 * S.ship.hull / d.hull}%" class="${S.ship.hull / d.hull < 0.4 ? 'low' : ''}"></span><em>Hull ${S.ship.hull}/${d.hull}</em></div>
       <div class="bar cargo"><span style="width:${Math.min(100, 100 * used / d.cargo)}%"></span><em>Hold ${used}/${d.cargo}</em></div>
       <div class="kv"><span>Cannons</span><b>${S.ship.guns}/${d.guns}${S.ship.broken ? ` <i class="bad">(${S.ship.broken} broken)</i>` : ''}</b></div>
@@ -612,6 +613,91 @@
       <div class="cargo-list">${cargo.length ? cargo.map(([id, c]) => `<div>${TW.GOOD[id].icon} ${TW.GOOD[id].name} <b>${c.qty}</b> <small>@${fmt(c.cost)}</small></div>`).join('') : '<small>The hold is empty.</small>'}</div>
     </div>`;
   }
+  // ---------- Ship & Captain ----------
+  // A full sheet for the ship and its captain: the vessel in paint, specs measured against
+  // the finest ship afloat, the cargo manifest priced at this port, the captain's record,
+  // and the ships still to come. The ship can be named here.
+  const SHIP_NAMES = ['Gull’s Fortune', 'Saucy Margaret', 'Lucky Doubloon', 'Windward Lass', 'Sea Sparrow', 'Merry Widow', 'Salt Sovereign',
+    'Copper Kettle', 'Restless Heron', 'Silver Mullet', 'Honest Mischief', 'Brave Bonito'];
+  const shipName = () => S.shipName || (S.shipName = SHIP_NAMES[Math.floor(Math.random() * SHIP_NAMES.length)]);
+  const tradeInValue = () => { const d = shipDef(); return Math.round(d.price * 0.6 * (0.5 + 0.5 * S.ship.hull / d.hull) / 100) * 100; };
+  function showShip() {
+    const d = shipDef(), w = worth(), m = S.market[S.port];
+    const best = k => Math.max(...TW.SHIPS.map(x => x[k]));
+    const meter = (label, value, max, text, cls = '') => `<div class="spec"><span>${label}</span>
+      <div class="meter ${cls}"><i style="width:${Math.max(3, Math.min(100, 100 * value / max))}%"></i></div><b>${text}</b></div>`;
+    const firepower = x => x.guns / x.reload;   // shots per second from a full gun deck
+    const cargoRows = Object.entries(S.ship.cargo).filter(([, c]) => c.qty > 0).map(([id, c]) => {
+      const g = TW.GOOD[id], sell = TW.unitSell(m[id]), pl = c.cost ? Math.round((sell - c.cost) / c.cost * 100) : null;
+      return `<tr><td>${g.icon} ${g.name}${TW.banned(S.port, id) ? ' <small class="bad">banned here</small>' : ''}</td><td>${c.qty}</td>
+        <td>${c.cost ? fmt(c.cost) : '<small class="up">free</small>'}</td><td>${fmt(sell)}</td><td>${fmt(sell * c.qty)}</td>
+        <td class="${pl === null || pl >= 0 ? 'up' : 'down'}">${pl === null ? '–' : (pl >= 0 ? '+' : '') + pl + '%'}</td></tr>`;
+    }).join('');
+    const rankIdx = TW.RANKS.reduce((k, [min], i) => (w >= min ? i : k), 0);
+    const [lo] = TW.RANKS[rankIdx], next = TW.RANKS[rankIdx + 1];
+    const st = S.stats;
+    modal(`
+      <div class="ship-hero"><canvas width="1200" height="400" data-hero></canvas>
+        <div class="ship-title"><label>The</label><input id="ship-name" maxlength="28" value="${esc(shipName())}" aria-label="Ship name" title="Click to rename your ship">
+          <small>${d.name} · Captain ${esc(S.name)}, ${rankOf(w)}</small></div></div>
+      <div class="ship-grid">
+        <section><h3>Specifications</h3>
+          ${meter('Hull', S.ship.hull, best('hull'), `${S.ship.hull} / ${d.hull}`, S.ship.hull / d.hull < 0.4 ? 'low' : '')}
+          ${meter('Hold', d.cargo, best('cargo'), `${usedSpace()} / ${d.cargo} used`)}
+          <div class="hold-split"><span style="flex:${cargoQty()}" class="c">cargo ${cargoQty()}</span><span style="flex:${S.ship.guns * TW.GUN_SPACE}" class="g">cannons ${S.ship.guns * TW.GUN_SPACE}</span><span style="flex:${Math.max(0, freeSpace())}" class="f">free ${Math.max(0, freeSpace())}</span></div>
+          ${meter('Speed', d.speed, best('speed'), `${d.speed}`)}
+          ${meter('Firepower', firepower({ guns: S.ship.guns - S.ship.broken, reload: d.reload }), firepower(TW.SHIPS[TW.SHIPS.length - 1]), `${S.ship.guns - S.ship.broken} guns`)}
+          <div class="kv"><span>Gun deck</span><b>${S.ship.guns} of ${d.guns} mounted${S.ship.broken ? `, <i class="bad">${S.ship.broken} broken</i>` : ''}</b></div>
+          <div class="kv"><span>Reload</span><b>${d.reload}s per gun</b></div>
+          <div class="kv"><span>Special shot</span><b>⛓ ${S.ammo.chain} · 🔥 ${S.ammo.fire} · 💥 ${S.ammo.keg}</b></div>
+          <div class="kv"><span>Wages &amp; provisions</span><b>${fmt(TW.upkeep(d, S.ship.guns))} g/day</b></div>
+          <div class="kv"><span>Trade-in value</span><b>${gold(tradeInValue())}</b></div>
+        </section>
+        <section><h3>Manifest <small>priced in ${port().name}</small></h3>
+          ${cargoRows ? `<table class="manifest"><thead><tr><th>Good</th><th>Qty</th><th>Paid</th><th>Sells</th><th>Worth</th><th></th></tr></thead><tbody>${cargoRows}</tbody></table>`
+            : '<p class="hint">The hold is empty. Nothing aboard but rats and rope.</p>'}
+          ${contracts().length ? `<h4>Contracts aboard</h4>${contracts().map(c => `<div class="mini-contract">${TW.contractIcon(c)} ${TW.describeContract(c)} <small>· ${c.due - S.day} days</small></div>`).join('')}` : ''}
+        </section>
+        <section><h3>Captain’s record</h3>
+          <div class="rank"><b>${rankOf(w)}</b>${next ? `<div class="meter"><i style="width:${Math.round(100 * (w - lo) / (next[0] - lo))}%"></i></div><small>${gold(next[0] - w)} more to ${next[1]}</small>` : '<small>The highest rank there is.</small>'}</div>
+          <div class="kv"><span>Net worth</span><b>${gold(w)}</b></div>
+          <div class="kv"><span>Days in command</span><b>${fmt(S.day)}</b></div>
+          <div class="kv"><span>Voyages</span><b>${st.voyages}</b></div>
+          <div class="kv"><span>Trading profit</span><b>${gold(st.profit)}</b></div>
+          <div class="kv"><span>Contracts completed</span><b>${st.contracts || 0}</b></div>
+          <div class="kv"><span>Pirates sunk / escaped / lost to</span><b>${st.won} / ${st.fled} / ${st.lost}</b></div>
+          <div class="kv"><span>Booty taken</span><b>${gold(st.booty)}</b></div>
+          <div class="kv"><span>Ports liberated</span><b>${st.liberated || 0}</b></div>
+          <div class="kv"><span>Storms weathered</span><b>${st.storms}</b></div>
+          <div class="kv"><span>Cargo seized by navies</span><b>${st.seized || 0}</b></div>
+          <div class="kv"><span>Ports charted</span><b>${S.known.length} of ${TW.PORTS.length}</b></div>
+        </section>
+      </div>
+      <h3 class="ladder-head">The ships of the Caribbean</h3>
+      <div class="ship-ladder">${TW.SHIPS.map(x => {
+        const mine = x.id === d.id, open = S.peakWorth >= x.unlock;
+        return `<div class="rung ${mine ? 'mine' : open ? 'open' : 'locked'}"><canvas width="240" height="130" data-rung="${x.id}"></canvas>
+          <b>${x.name}</b><small>${mine ? 'Your ship' : open ? 'Sold at shipyards' : `Unlocks at ${fmt(x.unlock)}`}</small>
+          <small class="dim">Hull ${x.hull} · Hold ${x.cargo} · ${x.guns} guns</small></div>`;
+      }).join('')}</div>`,
+      [['Close', null, 'big']], 'wide ship-sheet');
+    const box = $('#modal');
+    const hero = box.querySelector('canvas[data-hero]'), hx = hero.getContext('2d');
+    const sky = hx.createLinearGradient(0, 0, 0, hero.height);
+    sky.addColorStop(0, '#f3c98b'); sky.addColorStop(0.62, '#a9d3d6'); sky.addColorStop(0.62, '#2f7d8f'); sky.addColorStop(1, '#173f57');
+    hx.fillStyle = sky; hx.fillRect(0, 0, hero.width, hero.height);
+    hx.save(); hx.translate(hero.width * 0.18, 0);
+    TW.drawShipFit(hx, d.id, hero.width * 0.64, hero.height, { water: hero.height * 0.8, flag: '#1f6f8b', wash: 0 });
+    hx.restore();
+    box.querySelectorAll('canvas[data-rung]').forEach(c => {
+      const x = c.getContext('2d');
+      TW.drawShipFit(x, c.dataset.rung, c.width, c.height, { water: c.height * 0.9, flag: '#1f6f8b' });
+    });
+    const input = box.querySelector('#ship-name');
+    input.onchange = () => { S.shipName = input.value.trim().slice(0, 28) || shipName(); input.value = S.shipName; save(); toast(`She is now the <b>${esc(S.shipName)}</b>.`, 'good'); };
+    input.onkeydown = ev => { if (ev.key === 'Enter') input.blur(); };
+  }
+
   function logCard() {
     return `<div class="panel card log"><h3>Captain's Log</h3>${S.log.slice(0, 7).map(l => `<p><small>${dateStr(l.day)}</small>${l.text}</p>`).join('')}</div>`;
   }
@@ -1444,6 +1530,7 @@
           log(`Abandoned a contract: ${TW.describeContract(c).toLowerCase()}${paid ? `, forfeiting ${fmt(paid)} gold` : ''}.`); save(); render(); }, 'big'], ['Keep it', null, 'ghost']]);
     },
     'show-contracts': () => modal(`<h2>Your contracts</h2>${contractList('none')}`, [['Close', null, 'big']], 'wide'),
+    'show-ship': () => showShip(),
     'show-log': () => modal(`<h2>Captain's Log</h2><div class="log modal-log">${S.log.slice(0, 20).map(l => `<p><small>${dateStr(l.day)}</small>${l.text}</p>`).join('')}</div>`, [['Close', null, 'big']]),
     'open-map': () => go('map'),
     'back-port': () => go('port'),

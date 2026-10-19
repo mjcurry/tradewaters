@@ -65,7 +65,7 @@ It keeps the core of the classics: **buy low, sell high, and survive the pirates
 - 🔊 **Recorded sound.** Cannon fire, splintering hulls, creaking doors, anchor chains, harbor and open-sea ambience, generated with ElevenLabs.
 - ⚔️ **Real-time naval combat** with Chain Shot, Fire Pots and Powder Kegs. Or flee, if you're outgunned.
 - 🏰 **Hostile ports.** Now and then pirates seize a port and close its harbor. Storm its fortress and gun batteries to free it, for gold and gems.
-- 🚢 **Seven ships,** from sloop to man-o-war. Every cannon costs cargo space, so choose between firepower and profit.
+- 🚢 **Seven ships,** from sloop to man-o-war. Every cannon costs cargo space, so choose between firepower and profit. Open the Ship & Captain sheet in any port to name your ship, compare its specs, price your cargo and review your record.
 - 💰 **Bank, moneylender, sea charts and rumors.** The bank pays about 20% a year and covers wages when your purse is empty; the moneylender charges 10% a month and sends collectors after overdue loans.
 - ⚓ **Running costs.** Crews draw daily wages and provisions, so slow routes and oversized gun decks cost real money.
 - 🏆 **Career mode** (10 years to make your fortune) or **Endless.** Progress autosaves in your browser.
