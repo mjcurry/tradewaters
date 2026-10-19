@@ -603,7 +603,7 @@
           <p>${S.ship.guns}/${d.guns} mounted. Each takes ${TW.GUN_SPACE} hold space. Buy ${gold(TW.CANNON_PRICE)}, sell ${gold(TW.CANNON_PRICE / 2)}.</p>
           <div class="row"><button data-act="gun-buy" ${S.ship.guns >= d.guns ? 'disabled' : ''}>Buy cannon</button><button data-act="gun-sell" ${!S.ship.guns ? 'disabled' : ''}>Sell cannon</button></div>
           <h3>Special ammunition</h3>
-          ${TW.AMMO.map(a => `<div class="kv"><span><b>${a.name}</b> (${S.ammo[a.id]}): ${a.desc}</span><button data-act="ammo" data-ammo="${a.id}">Buy ${fmt(a.price)} g</button></div>`).join('')}
+          ${TW.AMMO.map(a => `<div class="kv"><span><b>${a.name}</b> (${S.ammo[a.id]}): ${a.desc}</span><button class="ammo-buy" data-act="ammo" data-ammo="${a.id}">Buy · ${fmt(a.price)} g</button></div>`).join('')}
         </div>
         <div>
           <h3>Ships for sale</h3>

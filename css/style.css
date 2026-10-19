@@ -280,6 +280,7 @@ table.market .trade button.sell { background: var(--coral); }
 .tagx { font-size: 0.625rem; text-transform: uppercase; letter-spacing: 1px; margin-left: 0.375rem; padding: 1px 0.375rem; border-radius: 0.375rem; color: white; vertical-align: middle; }
 .tagx.shortage { background: var(--bad); }
 .tagx.glut { background: var(--good); }
+.kv .ammo-buy { flex: none; white-space: nowrap; min-width: 9rem; text-align: center; }
 .tagx.contraband { background: #5a2a5a; }
 /* Contract cards (Harbor Office, Tavern, Contracts dialog) */
 .contract { display: flex; align-items: center; gap: 0.7rem; padding: 0.55rem 0.7rem; margin: 0.4rem 0; border-radius: 0.55rem;
