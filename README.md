@@ -104,7 +104,7 @@ number in `index.html` so returning players get the new files.
 | `assets/img/` | Title, interiors, battle backdrop, ports, buildings, portraits and help screenshots |
 | `assets/video/title.mp4` | Looping animated title backdrop |
 | `assets/music/` | Soundtrack (M4A with MP3 fallbacks) and the prompts used to make it |
-| `docs/` | Design notes and README images |
+| `docs/readme/` | README banner |
 
 ## Debugging
 
