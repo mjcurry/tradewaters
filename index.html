@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tradewaters</title>
+  <meta name="description" content="A Caribbean trading and piracy game for the browser. Buy low, sell high, outrun the pirates.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛵</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pirata+One&family=IM+Fell+English+SC&family=IM+Fell+English:ital@0;1&family=Alegreya:ital,wght@0,400;0,700;1,400&family=Alegreya+Sans+SC:wght@500;700&family=Caveat:wght@500;700&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=7">
+</head>
+<body>
+  <div id="app">
+    <header id="hud" hidden></header>
+    <main id="screen"></main>
+  </div>
+  <div id="modal" hidden></div>
+  <div id="toasts"></div>
+
+  <script src="js/data.js?v=7"></script>
+  <script src="js/economy.js?v=7"></script>
+  <script src="js/characters.js?v=7"></script>
+  <script src="js/city.js?v=7"></script>
+  <script src="js/map.js?v=7"></script>
+  <script src="js/combat.js?v=7"></script>
+  <script src="js/audio.js?v=7"></script>
+  <script src="js/titlefx.js?v=7"></script>
+  <script src="js/game.js?v=7"></script>
+  <script>TW.boot();</script>
+</body>
+</html>

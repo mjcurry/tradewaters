@@ -1,0 +1,22 @@
+# Cloudflare Pages response headers.
+# index.html is never cached, so new releases show up immediately. Code is referenced
+# with ?v=N in index.html, so bump N on each release and browsers fetch fresh copies.
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+/
+  Cache-Control: no-cache
+
+/index.html
+  Cache-Control: no-cache
+
+/css/*
+  Cache-Control: public, max-age=604800
+
+/js/*
+  Cache-Control: public, max-age=604800
+
+/assets/*
+  Cache-Control: public, max-age=604800
