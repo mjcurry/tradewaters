@@ -414,6 +414,9 @@ table.market .trade button.sell { background: var(--coral); }
 .sunk-row div { flex: 1; display: flex; flex-direction: column; line-height: 1.2; }
 .sunk-row small { color: var(--muted); }
 .sunk-row .gold { font-weight: 700; color: #9a6a12; }
+.haul-note { font-size: 0.78rem; font-style: normal; font-weight: 600; }
+.haul-note.rich { color: #b07a10; }
+.haul-note.poor { color: var(--muted); font-style: italic; font-weight: normal; }
 .booty { display: flex; align-items: baseline; gap: 0.5rem; padding: 0.5rem 0.9rem; border-radius: 0.6rem; background: linear-gradient(#fff4d1, #f7e2a8); border: 2px solid #e2b54f; }
 .booty span { font-size: 2rem; align-self: center; }
 .booty b { font-family: var(--font-display); font-weight: normal; font-size: 2.6rem; color: #8a5a00; font-variant-numeric: lining-nums tabular-nums; }

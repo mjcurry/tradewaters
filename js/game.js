@@ -1251,8 +1251,7 @@
   // Share out the spoils of a won battle: gold from every ship sunk, plus a chance at
   // cargo, gems, special shot, a working cannon or a chart to an uncharted port.
   function plunder(fleet) {
-    const factor = rand(0.8, 1.2);
-    const spoils = fleet.ships.map(ship => ({ ship, gold: Math.round(ship.booty * factor) }));
+    const spoils = fleet.ships.map(ship => ({ ship, ...haul(ship) }));
     const booty = spoils.reduce((a, sp) => a + sp.gold, 0);
     S.cash += booty; S.stats.booty += booty;
     const loot = [];
@@ -1283,6 +1282,17 @@
     }
     S.peakWorth = Math.max(S.peakWorth, worth());
     return { spoils, booty, loot };
+  }
+  // What one sunk ship or taken fort yields: its own roll, so two of a kind rarely match.
+  // Now and then a hold is fat with a strongbox or picked nearly clean; on average it pays
+  // the listed booty.
+  function haul(ship) {
+    const r = Math.random();
+    const [mult, note] = r < 0.1 ? [rand(1.8, 2.6), ship.land ? 'Treasury strongroom!' : 'A fat strongbox!']
+      : r < 0.18 ? [rand(0.3, 0.5), ship.land ? 'Already looted' : 'Barely a purse']
+      : [rand(0.65, 1.2), ''];
+    // Odd sums read like counted coin, not a round figure.
+    return { gold: Math.max(1, Math.round(ship.booty * mult) + irand(-9, 9)), note };
   }
   // Spoils for taking back a hostile port: the defenders' gold and stores, plus gems from
   // the grateful town (paid in gold instead if the hold is full). The harbor reopens.
@@ -1329,7 +1339,7 @@
           <h3>${fleet.port ? 'Defenses taken' : 'Ships sunk'}</h3>
           ${spoils.map(sp => `<div class="sunk-row">
             <canvas width="300" height="180" ${sp.ship.land ? `data-kind="${sp.ship.kind}"` : `data-look="${sp.ship.look}"`}></canvas>
-            <div><b>${sp.ship.name}</b><small>${sp.ship.guns} guns · ${sp.ship.hull} ${sp.ship.land ? 'walls' : 'hull'}</small></div>
+            <div><b>${sp.ship.name}</b><small>${sp.ship.guns} guns · ${sp.ship.hull} ${sp.ship.land ? 'walls' : 'hull'}</small>${sp.note ? `<em class="haul-note ${sp.gold > sp.ship.booty ? 'rich' : 'poor'}">${sp.note}</em>` : ''}</div>
             <span class="gold">${fmt(sp.gold)}</span></div>`).join('')}
         </section>
         <section>
