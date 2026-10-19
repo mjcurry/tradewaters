@@ -142,6 +142,8 @@ input, select { border: 1px solid rgba(19,50,74,0.3); border-radius: 0.4375rem; 
   .title-box h1 span, .title-box .tag, .title-box .col > *, .title-box button.big, .press-hint { animation: none !important; }
   .title-video { display: none; }
   .city-scene::before, .city-scene::after { animation: none; }
+  .coin-drop, .loot, .plunder-hero h1, .plunder-hero p { animation: none !important; }
+  .coin-drop { display: none; }
 }
 .newgame { position: relative; width: min(28.75rem, calc(100vw - 2rem)); display: flex; flex-direction: column; gap: 0.75rem; }
 .newgame label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.875rem; color: var(--muted); }
@@ -311,6 +313,45 @@ table.market .trade button.sell { background: var(--coral); }
 .modal-box .row { flex-wrap: wrap; justify-content: flex-end; }
 .fleet { margin: 0.375rem 0; padding-left: 1.25rem; }
 .modal-box.wide { width: min(54rem, 100%); max-height: 90vh; overflow-y: auto; }
+/* ---------- Plunder screen (after a won battle) ---------- */
+.modal-box.plunder { padding: 0; overflow-x: hidden; }
+.modal-box.plunder > .row { padding: 0 1.4rem 1.2rem; }
+.plunder-hero {
+  position: relative; height: 11.5rem; background: #3a2a1d center 55% / cover; border-radius: var(--radius) var(--radius) 0 0;
+  display: flex; flex-direction: column; justify-content: flex-end; padding: 1rem 1.4rem; overflow: hidden; color: var(--cream);
+}
+.plunder-hero::before { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent 30%, rgba(12, 28, 40, 0.85)); }
+.plunder-hero h1, .plunder-hero p { position: relative; margin: 0; }
+.plunder-hero h1 { font-size: 3.6rem; line-height: 1; color: var(--gold); text-shadow: 0 3px 0 rgba(0,0,0,0.35); animation: victory-in 0.7s cubic-bezier(0.2, 0.8, 0.25, 1.3) both; }
+.plunder-hero p { font-family: var(--font-old); font-style: italic; font-size: 1.25rem; animation: fade-up 0.6s ease-out 0.25s both; }
+@keyframes victory-in { from { opacity: 0; transform: scale(0.6) rotate(-4deg); } }
+.coin-rain { position: absolute; inset: 0; pointer-events: none; }
+.coin-drop { position: absolute; top: -2rem; font-size: 1.5rem; animation: coin-fall 1.7s cubic-bezier(0.4, 0, 0.8, 0.6) both; }
+@keyframes coin-fall { from { transform: translateY(0) rotate(0); opacity: 1; } 85% { opacity: 1; } to { transform: translateY(15rem) rotate(var(--spin)); opacity: 0; } }
+.plunder-body { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4rem; padding: 1rem 1.4rem 0.4rem; }
+.plunder-body h3 { margin-top: 0; }
+.plunder-body > section { min-width: 0; }  /* let the columns shrink on narrow screens */
+.sunk-row { display: flex; align-items: center; gap: 0.7rem; padding: 0.35rem 0; border-bottom: 1px dashed rgba(19,50,74,0.15); }
+.sunk-row canvas { width: 6.5rem; height: 3.9rem; flex: none; border-radius: 0.4rem; background: linear-gradient(#9fb6c4 55%, #2a5873 55%); opacity: 0.9; }
+.sunk-row div { flex: 1; display: flex; flex-direction: column; line-height: 1.2; }
+.sunk-row small { color: var(--muted); }
+.sunk-row .gold { font-weight: 700; color: #9a6a12; }
+.booty { display: flex; align-items: baseline; gap: 0.5rem; padding: 0.5rem 0.9rem; border-radius: 0.6rem; background: linear-gradient(#fff4d1, #f7e2a8); border: 2px solid #e2b54f; }
+.booty span { font-size: 2rem; align-self: center; }
+.booty b { font-family: var(--font-display); font-weight: normal; font-size: 2.6rem; color: #8a5a00; font-variant-numeric: lining-nums tabular-nums; }
+.booty small { color: #8a6a2a; font-size: 1.1rem; }
+.loot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(6.2rem, 1fr)); gap: 0.5rem; margin-top: 0.7rem; }
+.loot {
+  display: flex; flex-direction: column; align-items: center; text-align: center; padding: 0.5rem 0.3rem; border-radius: 0.6rem;
+  background: var(--cream); border: 1px solid rgba(19,50,74,0.15); box-shadow: 0 0.15rem 0.4rem rgba(8,24,36,0.1);
+  animation: loot-pop 0.45s cubic-bezier(0.2, 0.8, 0.25, 1.4) both; animation-delay: calc(0.9s + var(--i) * 0.18s);
+}
+.loot .ico { font-size: 1.8rem; line-height: 1.1; }
+.loot b { font-size: 1.15rem; }
+.loot small { color: var(--muted); font-size: 0.85rem; line-height: 1.15; }
+@keyframes loot-pop { from { opacity: 0; transform: translateY(0.6rem) scale(0.7); } }
+.plunder-cost { display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; margin: 0.8rem 1.4rem 0; padding: 0.6rem 0.9rem; background: rgba(19,50,74,0.06); border-radius: 0.5rem; font-size: 0.95rem; }
+.plunder-cost b { font-variant-numeric: lining-nums tabular-nums; }
 .help-row { display: grid; grid-template-columns: 16rem 1fr; gap: 1.1rem; align-items: center; padding: 0.75rem 0; border-top: 1px solid rgba(19,50,74,0.12); }
 .help-row > * { min-width: 0; }  /* let grid columns shrink below the screenshots' natural width */
 .help-row h3 { margin: 0 0 0.3rem; border: 0; padding: 0; }
@@ -352,6 +393,8 @@ table.market .trade button.sell { background: var(--coral); }
   .city-bar .mini { width: 100%; justify-content: center; }
   .press-hint { font-size: 1.3rem; }
   .help-row { grid-template-columns: 1fr; }
+  .plunder-body { grid-template-columns: 1fr; }
+  .plunder-hero h1 { font-size: 2.6rem; }
   .city-sign { top: 2%; padding: 0.15rem 0.7rem 0.25rem; }
   .city-sign span { font-size: 1.15rem; }
   .city-sign small { font-size: 0.7rem; }

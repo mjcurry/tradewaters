@@ -110,7 +110,8 @@ number in `index.html` so returning players get the new files.
 ## Debugging
 
 Open the browser console and run `TW._debug.nextEvents = ['pirates', 'storm', 'flotsam']` to force
-events on the next voyage. `TW._debug.state` is the live game state.
+events on the next voyage. `TW._debug.state` is the live game state. `TW._debug.winBattle()` jumps to the
+post-battle plunder screen.
 
 ## Credits
 

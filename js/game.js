@@ -657,7 +657,7 @@
     let last = performance.now();
     const step = (now) => {
       if (!mapState || mapState.voyage !== v) return;
-      const dt = now - last; last = now;
+      const dt = Math.max(0, now - last); last = now;   // a frame can be stamped slightly before `last`
       if (!v.paused) {
         v.t = Math.min(1, v.t + dt / dur);
         v.pos = TW.pointAlong(route, v.t);
@@ -753,21 +753,19 @@
         ${TW.AMMO.map(a => `<button id="ammo-${a.id}" data-act="special" data-ammo="${a.id}" title="${a.desc}">${a.name} <span class="n">0</span></button>`).join('')}
         <button id="btn-flee" class="ghost" data-act="flee">Flee</button>
       </div>`;
-    const c = $('#combat');
-    const ctx = c.getContext('2d');
-    TW.Combat.start(c, { ship: S.ship, enemies: fleet.ships, ammo: S.ammo }, res => {
+    const before = { hull: S.ship.hull, broken: S.ship.broken, ammo: { ...S.ammo }, worth: worth() };
+    TW.Combat.start($('#combat'), { ship: S.ship, enemies: fleet.ships, ammo: S.ammo }, res => {
       TW.Combat.stop();
       S.ship.hull = res.hull; S.ship.broken = res.broken; S.ammo = res.ammo;
-      afterCombat(v, fleet, res);
+      afterCombat(v, fleet, res, before);
     });
-    void ctx;
   }
   // Leave the voyage object alive while combat runs; the map is rebuilt afterward.
   function stopMapLoopKeepVoyage() { cancelAnimationFrame(mapRaf); mapRaf = 0; }
 
-  function afterCombat(v, fleet, res) {
-    const backToMap = (then) => {
-      view.screen = 'map'; TW.music('sea');
+  function afterCombat(v, fleet, res, before) {
+    const backToMap = (then, track = 'sea') => {
+      view.screen = 'map'; TW.music(track);
       const saved = mapState.voyage;
       render();
       mapState.voyage = saved;
@@ -777,21 +775,10 @@
     };
     if (res.outcome === 'win') {
       S.stats.won++;
-      const booty = Math.round(res.booty * rand(0.8, 1.2));
-      S.cash += booty; S.stats.booty += booty;
-      const loot = [];
-      for (let i = 0; i < res.sunk; i++) {
-        if (Math.random() < 0.1 && freeSpace() > 0) addLoot('gems', irand(1, 4), loot);
-        else if (Math.random() < 0.4) {
-          const goods = TW.GOODS.filter(g => TW.goodUnlocked(S, g) && g.id !== 'gems');
-          addLoot(goods[Math.floor(Math.random() * goods.length)].id, irand(5, 25), loot);
-        }
-      }
-      S.peakWorth = Math.max(S.peakWorth, worth());
-      log(`Defeated ${fleet.captain}'s pirates and took ${fmt(booty)} gold in booty.`);
-      TW.sfx('coins');
-      backToMap(() => modal(`<h2>Victory!</h2><p>${fleet.captain}'s fleet is sent to the bottom.</p>
-        <p>Booty: ${gold(booty)}${loot.length ? `<br>Salvaged: ${loot.join(', ')}` : ''}</p>`, [['Splendid!', () => { checkMilestones(); resume(v); }]]));
+      before.shotUsed = TW.AMMO.reduce((n, am) => n + Math.max(0, before.ammo[am.id] - S.ammo[am.id]), 0);
+      const { spoils, booty, loot } = plunder(fleet);
+      log(`Defeated ${fleet.captain}'s pirates and took ${fmt(booty)} gold${loot.length ? ' and ' + loot.map(l => `${l.qty} ${l.name.toLowerCase()}`).join(', ') : ''}.`);
+      backToMap(() => showPlunder(v, fleet, spoils, booty, loot, before), 'victory');
     } else if (res.outcome === 'fled') {
       S.stats.fled++;
       log(`Escaped ${fleet.captain}'s pirates.`);
@@ -813,12 +800,101 @@
         }]]));
     }
   }
+  // Share out the spoils of a won battle: gold from every ship sunk, plus a chance at
+  // cargo, gems, special shot, a working cannon or a chart to an uncharted port.
+  function plunder(fleet) {
+    const factor = rand(0.8, 1.2);
+    const spoils = fleet.ships.map(ship => ({ ship, gold: Math.round(ship.booty * factor) }));
+    const booty = spoils.reduce((a, sp) => a + sp.gold, 0);
+    S.cash += booty; S.stats.booty += booty;
+    const loot = [];
+    const goods = TW.GOODS.filter(g => TW.goodUnlocked(S, g) && g.id !== 'gems');
+    for (let i = 0; i < spoils.length; i++) {
+      if (Math.random() < 0.45) addLoot(goods[Math.floor(Math.random() * goods.length)].id, irand(5, 25), loot);
+      if (Math.random() < 0.1) addLoot('gems', irand(1, 4), loot);
+      if (Math.random() < 0.22) {
+        const id = Math.random() < 0.6 ? 'chain' : 'fire', n = irand(1, 2);
+        S.ammo[id] += n;
+        addItem(loot, { icon: id === 'chain' ? '⛓️' : '🔥', qty: n, name: TW.AMMO_BY[id].name });
+      }
+      if (Math.random() < 0.12 && S.ship.guns < shipDef().guns && freeSpace() >= TW.GUN_SPACE) {
+        S.ship.guns++;
+        addItem(loot, { icon: '💣', qty: 1, name: 'Cannon' });
+      }
+      if (Math.random() < 0.08) {
+        const p = revealPort();
+        if (p) loot.push({ icon: '🗺️', qty: 1, name: `Chart to ${p.name}`, chart: true });
+      }
+    }
+    S.peakWorth = Math.max(S.peakWorth, worth());
+    return { spoils, booty, loot };
+  }
+  // Merge identical spoils into one card with a running count.
+  function addItem(list, item) {
+    const prev = list.find(l => l.name === item.name);
+    if (prev) prev.qty += item.qty; else list.push(item);
+  }
   function addLoot(id, q, list) {
     q = Math.min(q, freeSpace()); if (q <= 0) return;
     const c = S.ship.cargo[id] || (S.ship.cargo[id] = { qty: 0, cost: 0 });
     c.cost = c.cost * c.qty / (c.qty + q); c.qty += q;
-    list.push(`${q} ${TW.GOOD[id].name}`);
+    const prev = list.find(l => l.good === id);
+    if (prev) prev.qty += q;
+    else list.push({ good: id, icon: TW.GOOD[id].icon, qty: q, name: TW.GOOD[id].name });
   }
+
+  // The plunder screen: the victory fanfare plays while the haul is counted up.
+  function showPlunder(v, fleet, spoils, booty, loot, before) {
+    const hullLost = before.hull - S.ship.hull;
+    const newlyBroken = Math.max(0, S.ship.broken - before.broken);
+    const coins = Array.from({ length: 16 }, () =>
+      `<span class="coin-drop" style="left:${irand(4, 96)}%; animation-delay:${(Math.random() * 0.9).toFixed(2)}s; --spin:${irand(-540, 540)}deg">🪙</span>`).join('');
+    modal(`
+      <div class="plunder-hero" style="${bgStyle('plunder')}">
+        <div class="coin-rain" aria-hidden="true">${coins}</div>
+        <h1>Victory!</h1>
+        <p>${esc(fleet.captain)}’s ${spoils.length > 1 ? `fleet of ${spoils.length} is` : 'ship is'} sent to the bottom.</p>
+      </div>
+      <div class="plunder-body">
+        <section>
+          <h3>Ships sunk</h3>
+          ${spoils.map(sp => `<div class="sunk-row">
+            <canvas width="150" height="90" data-look="${sp.ship.look}"></canvas>
+            <div><b>${sp.ship.name}</b><small>${sp.ship.guns} guns · ${sp.ship.hull} hull</small></div>
+            <span class="gold">${fmt(sp.gold)}</span></div>`).join('')}
+        </section>
+        <section>
+          <h3>Spoils</h3>
+          <div class="booty"><span>🪙</span><b id="booty-count">0</b><small>gold</small></div>
+          <div class="loot-grid">${loot.length ? loot.map((l, i) => `<div class="loot" style="--i:${i}">
+            <span class="ico">${l.icon}</span>${l.chart ? '' : `<b>${l.qty}</b>`}<small>${esc(l.name)}</small></div>`).join('')
+            : '<p class="hint">The holds were empty. Only gold worth taking.</p>'}</div>
+        </section>
+      </div>
+      <div class="plunder-cost">
+        <span>Hull lost <b class="${hullLost ? 'down' : ''}">${hullLost ? '−' + hullLost : 'none'}</b></span>
+        <span>Cannons knocked out <b class="${newlyBroken ? 'down' : ''}">${newlyBroken}</b></span>
+        <span>Special shot fired <b>${before.shotUsed}</b></span>
+        <span>Net worth <b>${fmt(before.worth)}</b> → <b class="up">${fmt(worth())}</b></span>
+      </div>`,
+      [['⛵ Back to sea', () => { TW.music('sea'); checkMilestones(); resume(v); }, 'big']], 'wide plunder');
+    $('#modal').querySelectorAll('canvas[data-look]').forEach(c => {
+      const x = c.getContext('2d'); x.scale(0.8, 0.8);
+      TW.drawShipSide(x, c.dataset.look, 92, 98, -1, { scale: 0.62, tilt: 0.3, skull: true, sail: '#cfc6b0', hullColor: '#3d2a1d' });
+    });
+    // Count the gold up, with a few coin clinks along the way.
+    const el = $('#booty-count'), start = performance.now(), dur = 1600;
+    let clinks = 0;
+    const tick = () => {
+      if (!el.isConnected) return;
+      const k = Math.min(1, (performance.now() - start) / dur), eased = 1 - Math.pow(1 - k, 3);
+      el.textContent = fmt(booty * eased);
+      if (k * 4 > clinks) { clinks++; TW.sfx('coins'); }
+      if (k < 1) setTimeout(tick, 30);
+    };
+    setTimeout(tick, 350);
+  }
+
 
   function arrive(dest, towed) {
     S.port = dest;
@@ -1015,7 +1091,7 @@
 
   // ---------- boot ----------
   function loadImages() {
-    const names = ['title', 'harbor', 'market', 'shipyard', 'tavern', 'combat', 'int-bank', 'int-lender', 'int-harbor'];
+    const names = ['title', 'harbor', 'market', 'shipyard', 'tavern', 'combat', 'int-bank', 'int-lender', 'int-harbor', 'plunder'];
     return Promise.all(names.map(n => new Promise(res => {
       const img = new Image();
       img.onload = () => { TW.images[n] = img; res(); };
@@ -1037,5 +1113,14 @@
   };
   // Exposed for debugging and automated checks.
   // Set TW._debug.nextEvents = ['pirates', 'storm'] to force events on the next voyage.
-  TW._debug = { get state() { return S; }, set state(v) { S = v; }, go, passDay, makeFleet, worth, nextEvents: null };
+  TW._debug = { get state() { return S; }, set state(v) { S = v; }, go, passDay, makeFleet, worth, nextEvents: null,
+    // Skip straight to the post-battle plunder screen against a freshly rolled pirate fleet.
+    winBattle() {
+      const fleet = makeFleet(), before = { hull: S.ship.hull, broken: S.ship.broken, ammo: { ...S.ammo }, worth: worth(), shotUsed: 0 };
+      S.stats.won++;
+      const { spoils, booty, loot } = plunder(fleet);
+      TW.music('victory');
+      showPlunder({ paused: true }, fleet, spoils, booty, loot, before);
+    },
+  };
 })();
