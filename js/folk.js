@@ -24,11 +24,12 @@
   })));
 
   const rand = (a, b) => a + Math.random() * (b - a);
-  const COUNT = 6, FADE = 0.035;
+  const COUNT = 3, FADE = 0.035;
 
-  // scene: the .city-scene element. quay: y (0..1) where buildings stand.
+  // scene: the .city-scene element. quay: y (0..1) where buildings stand. dock: where the
+  // walkable surface ends (feet stay just behind it).
   // harborLeft: which end the harbor pier is on (folk keep clear of it).
-  TW.startFolk = function (scene, { quay, harborLeft }) {
+  TW.startFolk = function (scene, { quay, dock = quay + 0.04, harborLeft }) {
     const canvas = document.createElement('canvas');
     canvas.className = 'folk';
     canvas.setAttribute('aria-hidden', 'true');
@@ -38,7 +39,9 @@
     const ctx = canvas.getContext('2d');
     // The walkable stretch: off the open edge at one end, up to the pier at the other.
     const lo = harborLeft ? 0.25 : -0.06, hi = harborLeft ? 1.06 : 0.75;
-    const top = quay + 0.02, bottom = quay + 0.062;
+    // Feet stay on the walkable surface: a band just behind its front edge, never more than
+    // a little up the deck behind the building line.
+    const bottom = dock - 0.008, top = Math.min(bottom - 0.004, Math.max(quay - 0.025, dock - 0.045));
     const spawn = (initial) => {
       const k = KINDS[Math.floor(Math.random() * KINDS.length)];
       const dir = Math.random() < 0.5 ? 1 : -1;

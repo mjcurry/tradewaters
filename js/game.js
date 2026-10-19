@@ -503,7 +503,7 @@
     });
     // Townsfolk on the quay, kept clear of the harbor pier (same side rule as cityLayout).
     const folkBox = el.querySelector('.city-scene'), quay = city.quay || 0.78;
-    if (TW.startFolk) TW.startFolk(folkBox, { quay, harborLeft: city.harbor ? city.harbor === 'left' : hash(p.id) % 2 === 0 });
+    if (TW.startFolk) TW.startFolk(folkBox, { quay, dock: city.dock, harborLeft: city.harbor ? city.harbor === 'left' : hash(p.id) % 2 === 0 });
     const scene = preloadScene(p.id);
     if (!scene.ready) {
       const box = el.querySelector('.city-scene');
