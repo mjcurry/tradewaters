@@ -1,0 +1,9 @@
+// Cloudflare Workers static-assets config. Publishes only dist/ (built by
+// scripts/build.sh), so the repo's .git folder, docs and scripts are never served.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tradewaters",
+  "compatibility_date": "2026-10-12",
+  "observability": { "enabled": true },
+  "assets": { "directory": "./dist" }
+}

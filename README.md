@@ -13,7 +13,7 @@
 <p align="center">
   <a href="https://tradewaters.curry.io"><img alt="Play in your browser" src="https://img.shields.io/badge/play-tradewaters.curry.io-e8604c?style=for-the-badge&logo=googlechrome&logoColor=white"></a>
   <img alt="HTML5" src="https://img.shields.io/badge/HTML5-no%20build%20step-2f8f9d?style=for-the-badge&logo=html5&logoColor=white">
-  <img alt="Hosted on Cloudflare Pages" src="https://img.shields.io/badge/hosted%20on-Cloudflare%20Pages-13324a?style=for-the-badge&logo=cloudflare&logoColor=white">
+  <img alt="Hosted on Cloudflare" src="https://img.shields.io/badge/hosted%20on-Cloudflare-13324a?style=for-the-badge&logo=cloudflare&logoColor=white">
 </p>
 
 ---
@@ -77,10 +77,10 @@ Then visit http://localhost:8137.
 
 ## Deploy
 
-Hosted on Cloudflare Pages, which redeploys on every push to `main`:
+Hosted on Cloudflare (Workers static assets), which redeploys on every push to `main`:
 
 - **Build command:** `sh scripts/build.sh`
-- **Build output directory:** `dist`
+- **Deploy command:** `npx wrangler deploy` (reads `wrangler.jsonc`, which publishes only `dist/`)
 
 The build copies only `index.html`, `_headers`, `css/`, `js/` and `assets/` into `dist/`, so `docs/`
 and other repo files never reach the public site. `_headers` sets the caching: `index.html` is
