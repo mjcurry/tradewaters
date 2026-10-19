@@ -59,6 +59,7 @@ It keeps the core of the classics: **buy low, sell high, and survive the pirates
 - 🏝️ **20 real Caribbean ports,** each with a hand-painted city view and its own architecture, from Spanish Havana to Danish St. Thomas.
 - 🎭 **95 unique keepers,** one in every building of every port, each with their own portrait, personality and lines. Meet a Maya cotton trader in Mérida, a Danish innkeeper in St. Thomas and a retired pirate lending money in Port Royal. They react to your debts, your cargo and the state of your hull.
 - 📈 **A living economy.** Every port makes some goods cheaply and pays dearly for others. Prices drift daily, shortages and gluts come and go, and your trading leaves a lasting mark, so the same route can't be milked forever.
+- 🧾 **Contracts and contraband.** Harbor Offices post freight and courier contracts with deadlines and bonds; taverns offer smuggling jobs. Each nation bans certain goods, and its navy patrols the approaches, so you can submit, bribe or run.
 - 🗺️ **Real sea lanes.** Routes are found with A* pathfinding around coastlines traced from real geography.
 - ⚔️ **Real-time naval combat** with Chain Shot, Fire Pots and Powder Kegs. Or flee, if you're outgunned.
 - 🚢 **Seven ships,** from sloop to man-o-war. Every cannon costs cargo space, so choose between firepower and profit.
@@ -98,6 +99,7 @@ number in `index.html` so returning players get the new files.
 | `js/economy.js` | Market simulation, trade pricing, tavern rumors |
 | `js/cast.js` | The keepers of every building in every port, with their own lines |
 | `js/characters.js` | Shared role dialogue (reactions, situation-aware remarks) and the line picker |
+| `js/contracts.js` | Nations, contraband rules and contract generation |
 | `js/city.js` | Per-port architecture style, sign text and quay height for each city view |
 | `js/map.js` | Coastline rasterization, A* routing, map rendering |
 | `js/combat.js` | Real-time battle loop and ship drawing |
@@ -112,7 +114,7 @@ number in `index.html` so returning players get the new files.
 
 Open the browser console and run `TW._debug.nextEvents = ['pirates', 'storm', 'flotsam']` to force
 events on the next voyage. `TW._debug.state` is the live game state. `TW._debug.winBattle()` jumps to the
-post-battle plunder screen.
+post-battle plunder screen. `TW._debug.event('patrol', 'havana')` fires a sea event on the spot.
 
 ## Credits
 

@@ -91,6 +91,7 @@
     S.day++;
     TW.tickMarket(S);
     payUpkeep();
+    expireContracts();
     if (S.debt > 0 && S.loanDue && S.day === S.loanDue) {
       log('Your loan is now overdue. The moneylender’s interest rises to 15% a month.');
       toast('⚠ Your loan is overdue!', 'bad');
@@ -118,6 +119,62 @@
   }
   const loanOverdue = () => S.debt > 0 && S.loanDue && S.day >= S.loanDue;
   const loanLimit = () => (loanOverdue() ? 0 : Math.max(0, Math.max(5000, worth()) - S.debt));
+
+  // ----- Contracts -----
+  const contracts = () => (S.contracts = S.contracts || []);
+  const contractCtx = () => ({
+    days: (a, b) => travelDays(TW.route(a, b)),
+    cargoCap: Math.max(10, shipDef().cargo - S.ship.guns * TW.GUN_SPACE),
+    danger: dangerLevel(),
+    unlocked: g => TW.goodUnlocked(S, g),
+  });
+  function takeFrom(amount) {
+    const c = Math.min(S.cash, amount); S.cash -= c;
+    const b = Math.min(S.bank, amount - c); S.bank -= b;
+    return c + b;
+  }
+  function expireContracts() {
+    for (const c of contracts().filter(c => S.day > c.due)) {
+      S.contracts = contracts().filter(x => x !== c);
+      const paid = c.bond ? takeFrom(c.bond) : 0;
+      log(`Missed the deadline: ${TW.describeContract(c).toLowerCase()}.${paid ? ` Forfeited a ${fmt(paid)} gold bond.` : ''}`);
+      toast(`⌛ Contract failed: ${TW.describeContract(c)}`, 'bad');
+    }
+  }
+  // Hand over whatever contracts end in this port. Returns lines for the arrival report.
+  function deliverContracts() {
+    const lines = [];
+    for (const c of contracts().filter(c => c.to === S.port)) {
+      if (c.kind !== 'courier') {
+        const held = S.ship.cargo[c.good]?.qty || 0;
+        if (held < c.qty) { lines.push(`<li class="warn">${TW.contractIcon(c)} ${TW.describeContract(c)}: you have ${held} of ${c.qty}. Bring the rest by ${dateStr(c.due)}.</li>`); continue; }
+        S.ship.cargo[c.good].qty -= c.qty;
+        if (!S.ship.cargo[c.good].qty) delete S.ship.cargo[c.good];
+      }
+      S.contracts = contracts().filter(x => x !== c);
+      S.cash += c.reward; S.stats.contracts = (S.stats.contracts || 0) + 1;
+      log(`Completed a contract: ${TW.describeContract(c).toLowerCase()} for ${fmt(c.reward)} gold.`);
+      lines.push(`<li class="ok">${TW.contractIcon(c)} ${TW.describeContract(c)}: <b>${gold(c.reward)}</b> paid.</li>`);
+    }
+    if (lines.some(l => l.includes('class="ok"'))) { TW.sfx('coins'); S.peakWorth = Math.max(S.peakWorth, worth()); }
+    return lines;
+  }
+  function contractCard(c, action) {
+    const days = c.due - S.day;
+    const held = c.kind === 'courier' ? null : (S.ship.cargo[c.good]?.qty || 0);
+    return `<div class="contract ${c.kind}">
+      <span class="c-ico">${TW.contractIcon(c)}</span>
+      <div class="c-body"><b>${TW.describeContract(c)}</b>
+        <small>For ${c.issuer} · due ${dateStr(c.due)} (${days} days)${c.bond ? ` · ${fmt(c.bond)} g bond if late` : ''}${held !== null && action !== 'take' ? ` · in hold: ${held}/${c.qty}` : ''}</small></div>
+      <span class="c-reward">${gold(c.reward)}</span>
+      ${action === 'take' ? `<button data-act="take-contract" data-id="${c.id}" data-where="${c.kind === 'smuggle' ? 'tavern' : 'harbor'}" ${contracts().length >= TW.MAX_CONTRACTS ? 'disabled title="You already hold three contracts"' : ''}>Accept</button>`
+        : action === 'abandon' ? `<button class="ghost" data-act="abandon-contract" data-id="${c.id}">Abandon</button>` : ''}
+    </div>`;
+  }
+  function contractList(action) {
+    const list = contracts();
+    return list.length ? list.map(c => contractCard(c, action)).join('') : '<p class="hint">No contracts. Visit a Harbor Office to find work.</p>';
+  }
 
   // Overdue debtors find collectors waiting in any port with a moneylender.
   function collectDebt() {
@@ -312,6 +369,7 @@
         <div class="city-bar">
           <div class="mini"><b>${d.name}</b>
             <span>Hull ${S.ship.hull}/${d.hull}</span><span>Hold ${usedSpace()}/${d.cargo}</span><span>Cannons ${S.ship.guns}</span></div>
+          <button class="ghost" data-act="show-contracts">🧾 Contracts (${contracts().length})</button>
           <button class="ghost" data-act="show-log">📜 Captain's Log</button>
           <button class="sail" data-act="open-map">⛵ Set Sail</button>
         </div>
@@ -330,6 +388,7 @@
       threat: D < 6 ? 0 : D < 14 ? 1 : D < 26 ? 2 : 3,
       uncharted: S.known.length < TW.PORTS.length, firstVisit: !(S.visited || {})[p.id],
       overdue: loanOverdue(), dueIn: S.loanDue ? S.loanDue - S.day : 0,
+      contracts: contracts().length,
       wants: list(p.wants), makes: list(p.makes.filter(id => id !== 'gems')),
     };
   }
@@ -392,6 +451,11 @@
       <h3>Readiness</h3>
       <ul class="checks">${checks.map(([ok, t]) => `<li class="${ok ? 'ok' : 'warn'}">${ok ? '✔' : '⚠'} ${t}</li>`).join('')}</ul>
       <p class="hint">${S.known.length} of ${TW.PORTS.length} ports charted.</p>
+      <h3>Freight board</h3>
+      <p class="hint">Contracts pay better than the market if you make the deadline. Late delivery forfeits the bond. You may hold ${TW.MAX_CONTRACTS} at once.</p>
+      ${(() => { const offers = TW.boardOffers(S, S.port, 'harbor', contractCtx()); return offers.length ? offers.map(c => contractCard(c, 'take')).join('') : '<p class="hint">The board is bare. New postings go up every few weeks.</p>'; })()}
+      <h3>Your contracts</h3>
+      ${contractList('abandon')}
       <button class="sail" data-act="open-map">⛵ Chart a course</button>`;
   }
 
@@ -426,7 +490,7 @@
       const avg = S.ship.cargo[g.id]?.cost;
       const pl = held && avg ? Math.round((sell - avg) / avg * 100) : null;
       return `<tr data-good="${g.id}">
-        <td>${g.icon} <b>${g.name}</b>${e.kind ? `<span class="tagx ${e.kind}">${e.kind}</span>` : ''}</td>
+        <td>${g.icon} <b>${g.name}</b>${e.kind ? `<span class="tagx ${e.kind}">${e.kind}</span>` : ''}${TW.banned(S.port, g.id) ? '<span class="tagx contraband" title="Banned here. You can sell on the black market, but you cannot buy, and patrols watch for it.">contraband</span>' : ''}</td>
         <td class="${priceClass(g, buy)}">${fmt(buy)}</td>
         <td class="${priceClass(g, sell)}">${fmt(sell)}</td>
         <td>${stock || '<i class="muted">none</i>'}</td>
@@ -435,7 +499,7 @@
         <td class="trade">
           <input type="number" min="0" value="" placeholder="qty" data-qty="${g.id}">
           <button data-act="max-buy" data-good="${g.id}" title="Fill with the most you can buy">Max</button>
-          <button class="buy" data-act="buy" data-good="${g.id}" ${!stock ? 'disabled' : ''}><span>Buy</span><small></small></button>
+          <button class="buy" data-act="buy" data-good="${g.id}" ${!stock || TW.banned(S.port, g.id) ? 'disabled' : ''}><span>Buy</span><small></small></button>
           <button data-act="all-sell" data-good="${g.id}" ${!held ? 'disabled' : ''} title="Fill with all you hold">All</button>
           <button class="sell" data-act="sell" data-good="${g.id}" ${!held ? 'disabled' : ''}><span>Sell</span><small></small></button>
         </td></tr>`;
@@ -470,6 +534,7 @@
     let q = Math.max(0, Math.floor(+input.value || 0));
     const g = TW.GOOD[id], e = S.market[S.port][id];
     if (kind === 'buy') {
+      if (TW.banned(S.port, id)) return toast(`${g.name} is contraband in ${port().name}. Nobody will sell it to you openly.`, 'bad');
       if (!q) q = TW.maxBuy(S, S.port, id, S.cash, freeSpace());
       q = Math.min(q, Math.floor(e.stock), freeSpace());
       if (q <= 0) {
@@ -515,7 +580,11 @@
         <button data-act="chart" ${!unknown ? 'disabled' : ''}>🗺 Buy a sea chart (${fmt(chartCost)} g)</button>
         <button data-act="wait">🛏 Wait 3 days</button>
       </div>
-      <p class="hint">${unknown ? `${unknown} ports are still uncharted. Grow your fortune or buy charts to find them.` : 'You have charted every port in the Caribbean.'}</p>`;
+      <p class="hint">${unknown ? `${unknown} ports are still uncharted. Grow your fortune or buy charts to find them.` : 'You have charted every port in the Caribbean.'}</p>
+      <h3>Whispers in the back room</h3>
+      ${(() => { const offers = TW.boardOffers(S, S.port, 'tavern', contractCtx());
+        return offers.length ? '<p class="hint">Banned goods pay handsomely, if the navy doesn’t catch you on the way in.</p>' + offers.map(c => contractCard(c, 'take')).join('')
+          : '<p class="hint">Nobody here wants anything smuggled. Yet.</p>'; })()}`;
   }
 
   function renderShipyard(el) {
@@ -640,6 +709,10 @@
         html += `<div class="tip-prices"><small>Prices ${S.day - seen.day ? `${S.day - seen.day} days ago` : 'today'}:</small>` +
           goods.map(g => `<div><span>${g.icon} ${g.name}</span><span class="${priceClass(g, seen.p[g.id])}">${fmt(seen.p[g.id])}</span></div>`).join('') + '</div>';
       } else html += '<br><small><i>Never visited</i></small>';
+      const due = contracts().filter(c => c.to === p.id);
+      if (due.length) html += `<div class="tip-contracts">${due.map(c => `<div>${TW.contractIcon(c)} ${TW.describeContract(c)}<small> · due in ${c.due - S.day} days</small></div>`).join('')}</div>`;
+      const bans = TW.nationOf(p.id).bans.filter(id => TW.goodUnlocked(S, TW.GOOD[id]));
+      if (bans.length) html += `<br><small class="bad">${TW.nationOf(p.id).name} port: ${bans.map(id => TW.GOOD[id].name.toLowerCase()).join(' and ')} banned</small>`;
     }
     tip.innerHTML = html; tip.hidden = false;
     const wrap = tip.parentElement.getBoundingClientRect();
@@ -655,6 +728,8 @@
     const warn = [];
     if (S.ship.hull < d.hull * 0.5) warn.push('Your hull is badly damaged.');
     if (!S.ship.guns) warn.push('You carry no cannons. Pirates will find you easy prey.');
+    const contraband = bannedAboard(p.id);
+    if (contraband.length) warn.push(`${contraband.map(id => TW.GOOD[id].name).join(' and ')} ${contraband.length > 1 ? 'are' : 'is'} contraband in ${p.name}. Navy patrols may stop you.`);
     modal(`<h2>Sail to ${p.name}?</h2>
       <p>The voyage should take about <b>${days} days</b>, costing about ${gold(days * TW.upkeep(d, S.ship.guns))} in wages and provisions.</p>
       ${warn.map(w => `<p class="bad">⚠ ${w}</p>`).join('')}`,
@@ -691,6 +766,11 @@
     const pirateChance = 0.18 * scale * (cargoQty() ? 0.75 + 0.5 * usedSpace() / shipDef().cargo : 0.5);
     if (Math.random() < pirateChance) events.push({ t: rand(0.25, 0.85), kind: 'pirates' });
     if (Math.random() < 0.05) events.push({ t: rand(0.2, 0.8), kind: 'flotsam' });
+    // Navy patrols watch the approaches to ports that ban goods you are carrying.
+    if (bannedAboard(dest).length) {
+      const smuggling = contracts().some(c => c.kind === 'smuggle' && c.to === dest);
+      if (Math.random() < Math.min(0.5, 0.2 * scale + (smuggling ? 0.15 : 0))) events.push({ t: rand(0.6, 0.9), kind: 'patrol' });
+    }
     if (TW._debug.nextEvents) { TW._debug.nextEvents.forEach(kind => events.push({ t: rand(0.2, 0.8), kind })); TW._debug.nextEvents = null; }
     events.sort((a, b) => a.t - b.t);
     const v = { dest, route, days, events, t: 0, dayDone: 0, paused: false, pos: TW.pointAlong(route, 0) };
@@ -731,6 +811,43 @@
       return modal(`<h2>Flotsam!</h2><p>Your lookout spots floating crates. You haul aboard <b>${q} ${g.name}</b>.</p>`, [['Splendid', () => resume(v)]]);
     }
     if (ev.kind === 'pirates') return pirateEvent(v);
+    if (ev.kind === 'patrol') return patrolEvent(v);
+  }
+
+  const bannedAboard = dest => Object.keys(S.ship.cargo).filter(id => S.ship.cargo[id].qty > 0 && TW.banned(dest, id));
+
+  // A navy patrol hails you near a port whose banned goods are in your hold.
+  function patrolEvent(v) {
+    const ids = bannedAboard(v.dest);
+    if (!ids.length) return resume(v);
+    const nation = TW.nationOf(v.dest);
+    const value = ids.reduce((a, id) => a + S.ship.cargo[id].qty * S.market[v.dest][id].base, 0);
+    const list = ids.map(id => `${S.ship.cargo[id].qty} ${TW.GOOD[id].name.toLowerCase()}`).join(', ');
+    const bribe = Math.max(500, Math.round(value * 0.3 / 10) * 10);
+    const escape = Math.max(0.1, Math.min(0.8, 0.4 + (shipDef().speed - 44) / 50 - usedSpace() / shipDef().cargo * 0.2));
+    const confiscate = (mult, extra = '') => {
+      ids.forEach(id => delete S.ship.cargo[id]);
+      const fine = takeFrom(Math.round(value * 0.25 * mult));
+      S.stats.seized = (S.stats.seized || 0) + 1;
+      log(`${nation.name} navy seized ${list}${fine ? ` and fined you ${fmt(fine)} gold` : ''}.`);
+      TW.sfx('bad');
+      modal(`<h2>Contraband seized</h2>${extra}<p>The ${nation.name} officers confiscate <b>${list}</b>${fine ? ` and fine you <b>${gold(fine)}</b>` : ''}.</p>`, [['Sail on', () => resume(v)]]);
+    };
+    TW.sfx('bell');
+    modal(`<h2>⚓ Navy patrol!</h2>
+      <p>${nation.navy.charAt(0).toUpperCase() + nation.navy.slice(1)} signals you to heave to for inspection off ${TW.PORT[v.dest].name}.</p>
+      <p>Your hold carries <b class="bad">${list}</b>, which is contraband there.</p>`,
+      [['Submit to inspection', () => confiscate(1), 'ghost'],
+       [`💰 Offer a bribe (${fmt(bribe)} g)`, () => {
+          if (S.cash < bribe) return confiscate(1, '<p>You fumble for coins you don’t have. The officer is not amused.</p>');
+          S.cash -= bribe;
+          if (Math.random() < 0.7) { log(`Bribed a ${nation.name} officer ${fmt(bribe)} gold to look the other way.`); toast('The officer pockets the purse and waves you on.', 'good'); resume(v); }
+          else confiscate(1, `<p>The officer takes your ${fmt(bribe)} gold, then searches the hold anyway.</p>`);
+        }],
+       [`⛵ Run for it (${Math.round(escape * 100)}%)`, () => {
+          if (Math.random() < escape) { log(`Outran ${nation.navy} with a hold full of contraband.`); toast('You slip away into the haze!', 'good'); resume(v); }
+          else confiscate(1.6, '<p>The patrol runs you down. Running has made things worse.</p>');
+        }, 'big']]);
   }
 
   function stormEvent(v) {
@@ -949,11 +1066,14 @@
     if (S.mode === 'career' && S.day >= CAREER_DAYS) return go('end');
     view.place = 'city'; view.speech = null;
     TW.sfx('bell');
+    const delivered = deliverContracts();
     const collected = collectDebt();
     go('port');
-    if (collected) modal(`<h2>Debt collectors!</h2>
+    const showDebt = () => collected && modal(`<h2>Debt collectors!</h2>
       <p>Hard-faced men are waiting on the quay with your overdue note. They take <b>${gold(collected.take)}</b>, including a ${fmt(collected.fee)} gold collection fee.</p>
       ${collected.left ? `<p class="bad">You still owe ${gold(collected.left)}, and it keeps growing at 15% a month.</p>` : '<p>Your debt is settled.</p>'}`, [['Grumble and pay', null, 'big']]);
+    if (delivered.length) modal(`<h2>Contracts in ${port().name}</h2><ul class="checks">${delivered.join('')}</ul>`, [['Excellent', showDebt, 'big']]);
+    else showDebt();
   }
 
   // ----- End -----
@@ -1012,7 +1132,7 @@
       const rows = [
         ['city', 'Explore the port', 'Every port has its own harbor. Click a building on the quay to step inside and meet its keeper. They have opinions about your ship, your debts and your cargo.'],
         ['market', 'Trade', 'Each port makes some goods cheaply and pays dearly for others. Buy where prices are <span class="cheap">green</span> and sell where they are <span class="dear">red</span>. Big trades move the price, and ports remember: run the same route again and again and its margin shrinks for weeks, so rotate your routes.'],
-        ['map', 'Sail', 'Visit the Harbor Office or press Set Sail, then pick a port on the chart. Hover a port to see the prices you saw there last.'],
+        ['map', 'Sail', 'Visit the Harbor Office or press Set Sail, then pick a port on the chart. Hover a port to see the prices you saw there last. Harbor Offices post freight contracts that beat market prices if you make the deadline, and taverns whisper of smuggling jobs. Each nation bans some goods, and its navy patrols the approaches.'],
         ['combat', 'Survive', 'Pirates and storms prowl the sea lanes. In battle, click an enemy to target it. Your cannons fire on their own, and special ammo can turn the tide. Outgunned? Flee.'],
         ['shipyard', 'Grow', 'Rising net worth (cash + bank + cargo \u2212 debt) unlocks richer goods, new charts and bigger ships. Cannons cost hold space, so balance firepower against cargo. Every day at sea costs wages and provisions, and the moneylender charges 10% a month with loans due in 90 days.'],
       ];
@@ -1037,6 +1157,20 @@
     },
     'to-city': () => { view.place = 'city'; view.speech = null; TW.music('port'); render(); },
     'talk': () => { speak('idle'); typeSpeech(); },
+    'take-contract': (b) => {
+      if (contracts().length >= TW.MAX_CONTRACTS) return toast('You can hold three contracts at most.', 'bad');
+      const c = TW.takeOffer(S, S.port, b.dataset.where, b.dataset.id);
+      if (!c) return;
+      log(`Accepted a contract: ${TW.describeContract(c).toLowerCase()} by ${dateStr(c.due)} for ${fmt(c.reward)} gold.`);
+      speak(c.kind === 'smuggle' ? 'smuggle' : 'contract'); TW.sfx('click'); save(); render();
+    },
+    'abandon-contract': (b) => {
+      const c = contracts().find(x => x.id === b.dataset.id); if (!c) return;
+      modal(`<h2>Abandon this contract?</h2><p>${TW.describeContract(c)}.</p>${c.bond ? `<p class="bad">You forfeit the ${gold(c.bond)} bond.</p>` : ''}`,
+        [['Abandon it', () => { S.contracts = contracts().filter(x => x !== c); const paid = c.bond ? takeFrom(c.bond) : 0;
+          log(`Abandoned a contract: ${TW.describeContract(c).toLowerCase()}${paid ? `, forfeiting ${fmt(paid)} gold` : ''}.`); save(); render(); }, 'big'], ['Keep it', null, 'ghost']]);
+    },
+    'show-contracts': () => modal(`<h2>Your contracts</h2>${contractList('none')}`, [['Close', null, 'big']], 'wide'),
     'show-log': () => modal(`<h2>Captain's Log</h2><div class="log modal-log">${S.log.slice(0, 20).map(l => `<p><small>${dateStr(l.day)}</small>${l.text}</p>`).join('')}</div>`, [['Close', null, 'big']]),
     'open-map': () => go('map'),
     'back-port': () => go('port'),
@@ -1169,6 +1303,8 @@
   // Exposed for debugging and automated checks.
   // Set TW._debug.nextEvents = ['pirates', 'storm'] to force events on the next voyage.
   TW._debug = { get state() { return S; }, set state(v) { S = v; }, go, passDay, makeFleet, worth, arrive, nextEvents: null,
+    // Fire a sea event ('storm', 'pirates', 'flotsam', 'patrol') as if sailing toward `dest`.
+    event(kind, dest = S.port) { runEvent({ dest, paused: true }, { kind }); },
     // Skip straight to the post-battle plunder screen against a freshly rolled pirate fleet.
     winBattle() {
       const fleet = makeFleet(), before = { hull: S.ship.hull, broken: S.ship.broken, ammo: { ...S.ammo }, worth: worth(), shotUsed: 0 };

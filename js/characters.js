@@ -41,12 +41,14 @@
       ],
       idle: [
         'Sailors talk when the drinks are free. That’s the whole business, really.',
+        'Every nation bans something, and every ban makes somebody rich.',
         'Buy a round and the whole room starts remembering prices in other ports.',
       ],
       rumor: ['Lean closer…', 'Here’s what I heard…', 'You didn’t hear this from me…'],
       chart: ['An old navigator left this as payment. Tab’s settled!', 'Careful with that chart. The last owner got eaten. By debt.'],
       wait: ['A few days’ rest! You look almost human.', 'Back already? The rooms upstairs are cheap. And slightly haunted.'],
       broke: ['No coin, no rumors. House rules.'],
+      smuggle: ['I never saw you. You never saw me. The navy never sees either of us.', 'Quietly now. Patrols watch the approaches, so keep your guns warm and your bribes ready.'],
     },
 
     shipyard: {
@@ -114,8 +116,11 @@
         c => c.hullPct < 0.5 ? 'She’s sitting low and leaking, Captain. The shipyard can fix that.' : null,
         c => c.loadPct > 0.8 ? 'Heavy cargo slows you down, and pirates can smell it from a league away.' : null,
       ],
+      contract: ['Signed and sealed. Mind the deadline, Captain. The bond is not a suggestion.', 'A fine contract. Deliver on time and they’ll pay handsomely.'],
       idle: [
         'Every port on the chart wants something another port has. That’s the whole trick.',
+        'Freight contracts pay better than the open market, if you make the deadline.',
+        c => c.contracts > 0 ? 'Your contracts are marked in gold on the chart, Captain.' : null,
         c => c.uncharted ? 'Old sailors speak of ports beyond the charts. The tavern might sell you a map.' : null,
         c => c.threat >= 3 ? 'Lately the pirates have grown bolder and richer. Rather like you, Captain.' : null,
       ],

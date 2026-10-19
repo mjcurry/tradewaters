@@ -244,6 +244,10 @@
     }
     for (const p of TW.PORTS) {
       const known = state.known.includes(p.id), here = state.port === p.id && !opts.ship, hov = opts.hover === p.id;
+      if ((state.contracts || []).some(c => c.to === p.id)) {   // contract destination: gold ring
+        ctx.beginPath(); ctx.arc(p.x, p.y, 11 + Math.sin(performance.now() / 300) * 1.5, 0, Math.PI * 2);
+        ctx.lineWidth = 2.5; ctx.strokeStyle = '#f2b84b'; ctx.stroke();
+      }
       ctx.beginPath(); ctx.arc(p.x, p.y, hov ? 8 : 6, 0, Math.PI * 2);
       ctx.fillStyle = !known ? 'rgba(30,40,50,0.55)' : here ? '#f2b84b' : '#e8604c';
       ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#fff8e6'; ctx.stroke();
