@@ -354,6 +354,7 @@
 
   function renderCity(el) {
     const p = port(), city = TW.CITY[p.id] || {}, style = city.style || 'english';
+    preloadKeepers(p.id);
     const d = shipDef();
     el.innerHTML = `
       <div class="city">
@@ -415,6 +416,25 @@
     tick();
   }
 
+  // Keeper portraits: the monogram underneath only shows if the picture fails to load.
+  // A portrait fades in the first time it loads; once it has, re-renders show it at once.
+  const portraitsReady = new Set();
+  TW._portraitLoaded = img => { portraitsReady.add(img.getAttribute('src')); img.classList.remove('pending'); };
+  TW._portraitFailed = img => { img.parentNode.classList.add('no-art'); img.remove(); };
+  function portraitImg(src, alt) {
+    return `<img src="${src}" alt="${esc(alt)}" class="${portraitsReady.has(src) ? '' : 'pending'}"
+      onload="TW._portraitLoaded(this)" onerror="TW._portraitFailed(this)">`;
+  }
+  // Fetch and decode this port's keepers while the captain is on the quay.
+  function preloadKeepers(portId) {
+    for (const b of portBuildings(TW.PORT[portId])) {
+      const src = `assets/img/chars/${portId}-${b}.jpg`;
+      if (portraitsReady.has(src)) continue;
+      const img = new Image(); img.src = src;
+      (img.decode ? img.decode() : Promise.resolve()).then(() => portraitsReady.add(src), () => {});
+    }
+  }
+
   function renderBuilding(el, id) {
     const ch = TW.keeper(S.port, id);
     if (!view.speech || view.speech.who !== id) speak('greet');
@@ -424,7 +444,7 @@
           <div class="keeper-art" style="${bgStyle(INTERIOR[id])}">
             <button class="portrait" data-act="talk" title="Talk to ${ch.name}">
               <span class="monogram">${ch.name.replace(/[“”"].*?[“”"]\s*/g, '').split(' ').filter(w => /^[A-ZÁÉÍÓÚÑ]/.test(w)).slice(-2).map(w => w[0]).join('')}</span>
-              <img src="assets/img/chars/${S.port}-${id}.jpg" alt="${ch.name}" onerror="this.remove()"></button>
+              ${portraitImg(`assets/img/chars/${S.port}-${id}.jpg`, ch.name)}</button>
           </div>
           <div class="keeper-name">${ch.name}<small>${ch.title}</small></div>
           <div class="speech"><p class="speech-text"></p></div>
