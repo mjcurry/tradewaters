@@ -46,12 +46,12 @@
     load: ['load'], chainShot: ['chain-shot'], firePot: ['fire-pot'], fuse: ['fuse'],
   };
   const LEVEL = { cannon: 0.75, cannonFar: 0.45, hit: 0.8, hitFar: 0.45, splash: 0.35, boom: 0.9, sink: 0.7, coins: 0.7, click: 0.35,
-    bell: 0.55, storm: 0.8, bad: 0.6, door: 0.6, map: 0.7, sail: 0.6, anchor: 0.6, hammer: 0.6, mug: 0.6, crate: 0.6, quill: 0.6, cheer: 0.6,
+    bell: 0.55, storm: 0.8, bad: 0.6, door: 0.6, map: 0.7, sail: 0.7, anchor: 0.6, hammer: 0.6, mug: 0.6, crate: 0.6, quill: 0.6, cheer: 0.6,
     load: 0.7, chainShot: 0.8, firePot: 0.75, fuse: 0.45 };   // the fuse is all hiss; keep it under the guns
   const VARY = new Set(['cannon', 'cannonFar', 'hit', 'hitFar', 'splash', 'boom', 'coins', 'click', 'crate']);  // pitch-jitter these
   const MAX_VOICES = { cannon: 5, cannonFar: 4, hit: 3, hitFar: 3, splash: 3 };
   const buffers = {}, voices = {};
-  const SFX_REV = 2;   // bump when the files are replaced: they're cached for a week
+  const SFX_REV = 3;   // bump when the files are replaced: they're cached for a week
   TW.loadSfx = function () {
     const a = ctx(); if (!a || !window.fetch) return Promise.resolve();
     const files = new Set([...Object.values(SAMPLES).flat(), 'amb-port', 'amb-sea']);
