@@ -205,6 +205,7 @@
 
   Combat.stop = function () { if (S) cancelAnimationFrame(S.raf); S = null; };
   // For automated checks: run the battle forward `sec` seconds without waiting for frames.
+  Combat._shots = () => (S ? S.shots : []);   // for automated checks
   Combat._advance = function (sec) { for (let t = 0; t < sec && S && !S.over; t += 0.05) update(0.05); if (S && !S.over) draw(); };
 
   function say(text) { S.msg = text; S.msgT = 2.5; }
@@ -218,7 +219,7 @@
 
   function shoot(from, to, opts) {
     S.shots.push({ x0: from.x, y0: from.y, x1: to.x + rand(-12, 12), y1: to.y + rand(-6, 6), t: 0,
-      dur: opts.dur || rand(0.7, 0.95), arc: opts.arc || rand(40, 80), ...opts });
+      dur: opts.dur || rand(1.05, 1.35), arc: opts.arc || rand(40, 80), ...opts });
     S.fx.push({ kind: 'smoke', x: from.x, y: from.y, t: 0, life: 0.8 });
   }
 
@@ -277,7 +278,7 @@
           if (s.hit || s.special) {
             for (const e of hitSet) {
               e.hp -= s.dmg;
-              S.fx.push({ kind: s.special === 'fire' ? 'fire' : 'hit', x: e.x + rand(-20, 20), y: e.y - rand(0, 30), t: 0, life: 0.9 });
+              S.fx.push({ kind: s.special === 'fire' ? 'fire' : s.special === 'keg' ? 'blast' : 'hit', x: e.x + rand(-20, 20), y: e.y - rand(0, 30), t: 0, life: s.special === 'keg' ? 1.2 : 0.9 });
               if (e.hp <= 0 && e.alive) {
                 e.alive = false; S.booty += e.booty;
                 TW.sfx(e.land ? 'boom' : 'sink');
@@ -346,7 +347,7 @@
     g.special = null; S.ammo[id]--;
     const list = a.all ? S.enemies.filter(e => e.alive) : [target];
     list.forEach((e, k) => shoot({ x: S.px + 40 + i * 4, y: S.py - 14 }, { x: e.x, y: e.y - 10 },
-      { by: 'p', special: id, all: false, dmg: a.dmg, tgt: S.enemies.indexOf(e), dur: 1 + k * 0.08, arc: 110 }));
+      { by: 'p', special: id, all: false, dmg: a.dmg, tgt: S.enemies.indexOf(e), dur: 1.55 + k * 0.1, arc: 110 }));
     TW.sfx(LAUNCH_SFX[id]);
     say(`${a.name} away!`);
     Combat.refreshButtons();
@@ -377,6 +378,62 @@
     const f = document.getElementById('btn-flee');
     if (f) f.disabled = !!S.flee;
   };
+
+  // ---------- projectiles ----------
+  // A shot's position at any point of its flight (0..1): a straight line lifted by an arc.
+  const shotAt = (s, t) => [s.x0 + (s.x1 - s.x0) * t, s.y0 + (s.y1 - s.y0) * t - Math.sin(Math.PI * t) * s.arc];
+  // The trail is the path the shot just travelled: older puffs are wider and fainter.
+  function drawTrail(ctx, s) {
+    const n = s.special ? 30 : 22, step = s.special ? 0.0055 : 0.006;   // dense enough that puffs blend
+    for (let i = n; i >= 1; i--) {
+      const tt = s.t - i * step;
+      if (tt <= 0) continue;
+      const [x, y] = shotAt(s, tt), age = i / n;
+      if (s.special === 'fire') {          // flame licking back into smoke
+        ctx.fillStyle = age < 0.45 ? `rgba(255,${150 + 90 * (1 - age) | 0},40,${0.45 * (1 - age)})` : `rgba(90,80,75,${0.22 * (1 - age)})`;
+        ctx.beginPath(); ctx.arc(x, y, 2.5 + age * 6, 0, Math.PI * 2); ctx.fill();
+      } else if (s.special === 'keg') {    // fuse sparks scattering behind a tumbling barrel
+        ctx.fillStyle = `rgba(200,195,185,${0.22 * (1 - age)})`;
+        ctx.beginPath(); ctx.arc(x, y, 2 + age * 6, 0, Math.PI * 2); ctx.fill();
+        if (i % 5 === 0) { ctx.fillStyle = `rgba(255,${210 + 40 * Math.random() | 0},90,${1 - age})`; ctx.fillRect(x + rand(-4, 4), y + rand(-4, 4), 2, 2); }
+      } else {                              // cannon smoke: a soft white wake
+        ctx.fillStyle = `rgba(240,240,235,${(s.special ? 0.26 : 0.24) * (1 - age)})`;
+        ctx.beginPath(); ctx.arc(x, y, 1.5 + age * (s.special ? 6 : 4.5), 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  }
+  function drawShot(ctx, s) {
+    const [x, y] = shotAt(s, s.t), spin = s.t * s.dur * 14;
+    ctx.save(); ctx.translate(x, y);
+    if (s.special) ctx.scale(1.4, 1.4);     // special shot reads at a glance
+    if (s.special === 'chain') {            // two balls joined by a whirling chain
+      ctx.rotate(spin);
+      ctx.strokeStyle = '#c3cacf'; ctx.lineWidth = 2.2; ctx.setLineDash([2.5, 1.5]);
+      ctx.beginPath(); ctx.moveTo(-8, 0); ctx.quadraticCurveTo(0, 3, 8, 0); ctx.stroke(); ctx.setLineDash([]);
+      for (const bx of [-8, 8]) ball(ctx, bx, 0, 3.8, '#2a2d30');
+    } else if (s.special === 'fire') {      // a clay pot with its rag burning
+      const flick = 1 + Math.sin(S.t * 40 + s.x0) * 0.2;
+      ctx.fillStyle = '#ffb347'; ctx.beginPath(); ctx.ellipse(0, -7, 3.2, 6 * flick, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff1a8'; ctx.beginPath(); ctx.ellipse(0, -5.5, 1.5, 3 * flick, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#9a5a33'; ctx.beginPath(); ctx.arc(0, 0, 5.6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#6e3c22'; ctx.fillRect(-5.2, -1, 10.4, 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.beginPath(); ctx.arc(-1.8, -1.8, 1.8, 0, Math.PI * 2); ctx.fill();
+    } else if (s.special === 'keg') {       // a tumbling powder keg with a lit fuse
+      ctx.rotate(spin * 0.6);
+      ctx.fillStyle = '#8b5a2b'; ctx.beginPath(); ctx.ellipse(0, 0, 8, 6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#3e2a17'; ctx.lineWidth = 1.4;
+      for (const bx of [-4, 4]) { ctx.beginPath(); ctx.moveTo(bx, -5.6); ctx.lineTo(bx, 5.6); ctx.stroke(); }
+      ctx.strokeStyle = '#e8d6a3'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(11, -2); ctx.stroke();
+      ctx.fillStyle = Math.sin(S.t * 50) > 0 ? '#fff3a0' : '#ff9d3a'; ctx.beginPath(); ctx.arc(11.5, -2.5, 2, 0, Math.PI * 2); ctx.fill();
+    } else {
+      ball(ctx, 0, 0, 3.6, '#1b1b1b');
+    }
+    ctx.restore();
+  }
+  function ball(ctx, x, y, r, color) {
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.arc(x - r * 0.35, y - r * 0.35, r * 0.35, 0, Math.PI * 2); ctx.fill();
+  }
 
   function draw() {
     const { ctx } = S;
@@ -424,18 +481,19 @@
     });
     // player
     drawShip(ctx, S.pShip.id, S.px, S.py + Math.sin(t * 1.3) * 4, 1, { scale: 1.05, flag: '#1f6f8b', sail: '#fff8e6', wash: t });
-    // shots
-    for (const s of S.shots) {
-      const x = s.x0 + (s.x1 - s.x0) * s.t, y = s.y0 + (s.y1 - s.y0) * s.t - Math.sin(Math.PI * s.t) * s.arc;
-      ctx.fillStyle = s.special === 'fire' ? '#ff8a3d' : s.special === 'keg' ? '#ffd23d' : s.special === 'chain' ? '#bfc7cc' : '#111';
-      ctx.beginPath(); ctx.arc(x, y, s.special ? 6 : 3.5, 0, Math.PI * 2); ctx.fill();
-    }
+    // shots, trails first so every projectile sits on top of its own smoke
+    for (const s of S.shots) drawTrail(ctx, s);
+    for (const s of S.shots) drawShot(ctx, s);
     // effects
     for (const f of S.fx) {
       const k = f.t / f.life;
       if (f.kind === 'smoke') { ctx.fillStyle = `rgba(230,230,225,${0.6 * (1 - k)})`; ctx.beginPath(); ctx.arc(f.x, f.y - k * 20, 8 + k * 18, 0, Math.PI * 2); ctx.fill(); }
       if (f.kind === 'splash') { ctx.strokeStyle = `rgba(230,245,255,${1 - k})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(f.x, f.y, 6 + k * 20, 2 + k * 5, 0, 0, Math.PI * 2); ctx.stroke();
         ctx.fillStyle = `rgba(230,245,255,${0.8 * (1 - k)})`; ctx.fillRect(f.x - 2, f.y - 25 * Math.sin(Math.PI * k), 4, 25 * Math.sin(Math.PI * k)); }
+      if (f.kind === 'blast') {   // a powder keg going off
+        ctx.fillStyle = `rgba(255,${200 - 80 * k | 0},60,${1 - k})`; ctx.beginPath(); ctx.arc(f.x, f.y, 10 + k * 46, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = `rgba(60,50,45,${0.5 * (1 - k)})`; ctx.beginPath(); ctx.arc(f.x + 6, f.y - 12 - k * 20, 8 + k * 34, 0, Math.PI * 2); ctx.fill();
+      }
       if (f.kind === 'hit' || f.kind === 'fire') { ctx.fillStyle = f.kind === 'fire' ? `rgba(255,120,40,${1 - k})` : `rgba(255,200,80,${1 - k})`; ctx.beginPath(); ctx.arc(f.x, f.y, 6 + k * 22, 0, Math.PI * 2); ctx.fill(); }
     }
     ctx.restore();
