@@ -251,11 +251,15 @@ input, select { border: 1px solid rgba(19,50,74,0.3); border-radius: 0.4375rem; 
   box-shadow: 0 0.2rem 0.4rem rgba(0,0,0,0.25); transition: background 0.18s, color 0.18s;
 }
 .bld:hover .bld-sign { background: var(--gold); }
-.city-bar { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; justify-content: center; width: min(100%, calc((100vh - 10.5rem) * 16 / 9)); }
-.city-bar .mini { display: flex; gap: 1rem; color: var(--cream); font-size: 1.05rem; margin-right: auto; flex-wrap: wrap; }
+.city-bar { display: flex; gap: 0.6rem; align-items: center; flex-wrap: nowrap; justify-content: center; width: min(100%, calc((100vh - 10.5rem) * 16 / 9)); }
+.city-bar .mini { display: flex; flex-direction: column; gap: 0.15rem; color: var(--cream); font-size: 1.05rem; margin-right: auto; min-width: 0; }
+.city-bar .mini-row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: baseline; }
+.city-bar .mini-ammo { font-size: 0.85rem; color: rgba(255,248,230,0.75); white-space: nowrap; }
+.city-bar button { white-space: nowrap; flex: none; }
 .city-bar .mini b { font-family: var(--font-head); color: var(--gold); }
 .city-bar button.ghost { color: var(--cream); border-color: rgba(255,248,230,0.4); }
 .sail { background: var(--coral); font-family: var(--font-display); font-size: 1.6rem; padding: 0.5rem 1.6rem; }
+.city-bar .sail { font-size: 1.4rem; padding: 0.4rem 1.3rem; }
 .sail:hover:not(:disabled) { background: #d4503d; }
 
 /* ---------- Port: inside a building ---------- */
@@ -471,7 +475,9 @@ table.market .trade button.sell { background: var(--coral); }
   .brand { display: none; }
   .port-main { overflow-x: auto; }
   .screen-port { padding: 0.75rem 1rem; }
-  .city-bar .mini { width: 100%; justify-content: center; }
+  .city-bar { flex-wrap: wrap; }
+  .city-bar .mini { width: 100%; align-items: center; margin-right: 0; }
+  .city-bar .mini-row { justify-content: center; }
   .press-hint { font-size: 1.3rem; }
   .help-row { grid-template-columns: 1fr; }
   .plunder-body { grid-template-columns: 1fr; }

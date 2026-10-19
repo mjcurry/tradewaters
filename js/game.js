@@ -482,10 +482,11 @@
             </button>`).join('')}
         </div>
         <div class="city-bar">
-          <div class="mini" data-act="show-ship" role="button" tabindex="0" title="Your ship and record"><b>${d.name}</b>
-            <span>Hull ${S.ship.hull}/${d.hull}</span><span>Hold ${usedSpace()}/${d.cargo}</span><span>Cannons ${S.ship.guns}</span></div>
+          <div class="mini" data-act="show-ship" role="button" tabindex="0" title="Your ship and record">
+            <div class="mini-row"><b>${d.name}</b><span>Hull ${S.ship.hull}/${d.hull}</span><span>Hold ${usedSpace()}/${d.cargo}</span><span>Cannons ${S.ship.guns}</span></div>
+            <div class="mini-ammo" title="Special shot aboard">${TW.AMMO.map(a => `${{ chain: '⛓', fire: '🔥', keg: '💥' }[a.id]} ${a.name} ${S.ammo[a.id]}`).join(' · ')}</div></div>
           <button class="ghost" data-act="show-contracts">🧾 Contracts (${contracts().length})</button>
-          <button class="ghost" data-act="show-ship">⚓ Ship &amp; Captain</button>
+          <button class="ghost" data-act="show-ship">⚓ Ship</button>
           <button class="ghost" data-act="show-log">📜 Captain's Log</button>
           <button class="sail" data-act="open-map">⛵ Set Sail</button>
         </div>
