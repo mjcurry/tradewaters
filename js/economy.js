@@ -131,12 +131,12 @@
     const port = TW.PORT[pick.pid].name, good = pick.g.name.toLowerCase();
     const high = pick.e.kind ? pick.e.kind === 'shortage' : pick.e.price > (pick.g.min + pick.g.max) / 2;
     const lines = high ? [
-      `A sailor leans in: "${port} is crying out for ${good}. They'll pay near anything."`,
-      `"Just came from ${port}," says a deckhand. "Merchants there would kill for ${good}."`,
+      `A sailor leans in: “${port} is crying out for ${good}. They’ll pay near anything.”`,
+      `“Just came from ${port},” says a deckhand. “Merchants there would kill for ${good}.”`,
       `Word on the docks: ${good} fetches a fine price in ${port} these days.`,
     ] : [
-      `"${port} is drowning in ${good}," grumbles a trader. "Can't give it away."`,
-      `A fisherman laughs: "${good} in ${port}? Cheap as seawater right now."`,
+      `“${port} is drowning in ${good},” grumbles a trader. “Can’t give it away.”`,
+      `A fisherman laughs: “${good} in ${port}? Cheap as seawater right now.”`,
       `Rumor has it ${port} warehouses are overflowing with ${good}. Prices have collapsed.`,
     ];
     return lines[Math.floor(Math.random() * lines.length)];
