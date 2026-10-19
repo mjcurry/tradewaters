@@ -394,22 +394,34 @@
         <td class="trade">
           <input type="number" min="0" value="" placeholder="qty" data-qty="${g.id}">
           <button data-act="max-buy" data-good="${g.id}" title="Fill with the most you can buy">Max</button>
-          <button class="buy" data-act="buy" data-good="${g.id}" ${!stock ? 'disabled' : ''}>Buy</button>
+          <button class="buy" data-act="buy" data-good="${g.id}" ${!stock ? 'disabled' : ''}><span>Buy</span><small></small></button>
           <button data-act="all-sell" data-good="${g.id}" ${!held ? 'disabled' : ''} title="Fill with all you hold">All</button>
-          <button class="sell" data-act="sell" data-good="${g.id}" ${!held ? 'disabled' : ''}>Sell</button>
+          <button class="sell" data-act="sell" data-good="${g.id}" ${!held ? 'disabled' : ''}><span>Sell</span><small></small></button>
         </td></tr>`;
     }).join('');
     el.innerHTML = `<h2>Marketplace</h2>
       <p class="hint">Free hold space: <b>${freeSpace()}</b> · Prices move as you trade. <span class="cheap">Green</span> is cheap, <span class="dear">red</span> is dear.</p>
-      <table class="market"><thead><tr><th>Good</th><th>Buy</th><th>Sell</th><th>Stock</th><th>Held</th><th></th></tr></thead><tbody>${rows}</tbody></table>
-      <div id="quote" class="quote"></div>`;
-    el.oninput = (ev) => {
-      const id = ev.target.dataset.qty; if (!id) return;
-      const q = Math.max(0, Math.floor(+ev.target.value || 0));
-      if (!q) { $('#quote').textContent = ''; return; }
-      const b = TW.quoteBuy(S, S.port, id, q).total, s = TW.quoteSell(S, S.port, id, Math.min(q, S.ship.cargo[id]?.qty || 0)).total;
-      $('#quote').innerHTML = `${q} × ${TW.GOOD[id].name}: buy for ${gold(b)}${S.ship.cargo[id]?.qty ? ` · sell for ${gold(s)}` : ''}`;
+      <table class="market"><thead><tr><th>Good</th><th>Buy</th><th>Sell</th><th>Stock</th><th>Held</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+    el.oninput = (ev) => { const id = ev.target.dataset.qty; if (id) showRowQuote(el, id, ev.target.value); };
+  }
+
+  // Live totals on a row's Buy and Sell buttons as the quantity is typed. Shows the
+  // quantity actually traded when stock, hold space or cargo held caps the order.
+  function showRowQuote(el, id, value) {
+    const q = Math.max(0, Math.floor(+value || 0));
+    const e = S.market[S.port][id], held = S.ship.cargo[id]?.qty || 0;
+    const buyBtn = el.querySelector(`button.buy[data-good="${id}"]`), sellBtn = el.querySelector(`button.sell[data-good="${id}"]`);
+    const set = (btn, n, total, short) => {
+      const small = btn.querySelector('small');
+      small.textContent = n > 0 ? `${n < q ? n + ' for ' : ''}${fmt(total)} g` : '';
+      btn.classList.toggle('short', !!short);
+      btn.title = short ? 'Not enough cash' : '';
     };
+    const nb = Math.min(q, Math.floor(e.stock), Math.max(0, freeSpace()));
+    const cost = nb > 0 ? TW.quoteBuy(S, S.port, id, nb).total : 0;
+    set(buyBtn, nb, cost, nb > 0 && cost > S.cash);
+    const ns = Math.min(q, held);
+    set(sellBtn, ns, ns > 0 ? TW.quoteSell(S, S.port, id, ns).total : 0, false);
   }
 
   function trade(kind, id) {
