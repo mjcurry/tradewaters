@@ -111,16 +111,21 @@ input, select { border: 1px solid rgba(19,50,74,0.3); border-radius: 0.4375rem; 
 .title-box .col > :nth-child(2) { animation-delay: 1.35s; }
 .title-box .col > :nth-child(3) { animation-delay: 1.5s; }
 .title-box button.big:not(.ghost) { animation: fade-up 0.7s ease-out 1.2s both, glow 2.8s ease-in-out 2.2s infinite; }
-/* Cold-load "click to begin" prompt: covers the screen so the first click lands here. */
+/* Cold-load "click to begin": an invisible full-screen button catches the first click,
+   while the visible prompt sits in the menu's own spot so it can never overlap the title. */
 .press-start {
-  position: absolute; inset: 0; z-index: 5; width: 100%; border-radius: 0; background: transparent;
-  display: flex; align-items: center; justify-content: center; padding-bottom: 12vh;
-  font-family: var(--font-display); font-weight: normal; font-size: 2.2rem; color: var(--cream); letter-spacing: 0.05em;
-  text-shadow: 0 2px 0 rgba(19,50,74,0.6), 0 0 1.2rem rgba(19,50,74,0.5);
+  position: absolute; inset: 0; z-index: 5; width: 100%; border-radius: 0; background: transparent; padding: 0; cursor: pointer;
+}
+.press-start:hover:not(:disabled) { background: transparent; }
+.menu-area { display: grid; justify-items: center; }
+.menu-area > * { grid-area: 1 / 1; }   /* prompt and menu share one cell, so nothing shifts on reveal */
+.press-hint {
+  align-self: start; pointer-events: none;
+  font-family: var(--font-display); font-size: 2rem; color: var(--cream); letter-spacing: 0.05em; white-space: nowrap;
+  text-shadow: 0 2px 0 rgba(19,50,74,0.6);
   animation: fade-up 0.8s ease-out 1.2s both, beckon 2.4s ease-in-out 2s infinite;
 }
-.press-start span { background: rgba(19, 50, 74, 0.62); padding: 0.35rem 1.6rem 0.5rem; border-radius: 999px; border: 2px solid rgba(242, 184, 75, 0.7); }
-.press-start:hover:not(:disabled) { background: transparent; }
+.press-hint span { display: inline-block; background: rgba(19, 50, 74, 0.62); padding: 0.35rem 1.6rem 0.5rem; border-radius: 999px; border: 2px solid rgba(242, 184, 75, 0.7); }
 @keyframes beckon { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 .title-box.gated .col { visibility: hidden; }
 /* After the first click the menu rises in; a new animation name restarts it. */
@@ -134,7 +139,7 @@ input, select { border: 1px solid rgba(19,50,74,0.3); border-radius: 0.4375rem; 
 @keyframes fade-up { from { opacity: 0; transform: translateY(0.875rem); } }
 @keyframes glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(232, 96, 76, 0.55); } 50% { box-shadow: 0 0 0 0.625rem rgba(232, 96, 76, 0); } }
 @media (prefers-reduced-motion: reduce) {
-  .title-box h1 span, .title-box .tag, .title-box .col > *, .title-box button.big { animation: none !important; }
+  .title-box h1 span, .title-box .tag, .title-box .col > *, .title-box button.big, .press-hint { animation: none !important; }
   .title-video { display: none; }
 }
 .newgame { position: relative; width: min(28.75rem, calc(100vw - 2rem)); display: flex; flex-direction: column; gap: 0.75rem; }
@@ -303,6 +308,7 @@ table.market .trade button.sell { background: var(--coral); }
   .port-main { overflow-x: auto; }
   .screen-port { padding: 0.75rem 1rem; }
   .city-bar .mini { width: 100%; justify-content: center; }
+  .press-hint { font-size: 1.3rem; }
   .city-sign { top: 2%; padding: 0.15rem 0.7rem 0.25rem; }
   .city-sign span { font-size: 1.15rem; }
   .city-sign small { font-size: 0.7rem; }

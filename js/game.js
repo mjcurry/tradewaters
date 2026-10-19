@@ -160,6 +160,7 @@
     if (gateOpen) return;
     gateOpen = true;
     $('.press-start')?.remove();
+    $('.press-hint')?.remove();
     const box = $('.title-box');
     if (box && box.classList.contains('gated')) { box.classList.remove('gated'); box.classList.add('revealed'); }
   }
@@ -172,14 +173,17 @@
     el.innerHTML = `
       ${titleArt(false)}
       <canvas class="title-fx"></canvas>
-      ${gated ? '<button class="press-start" data-act="begin"><span>⚓ Click anywhere to begin ⚓</span></button>' : ''}
+      ${gated ? '<button class="press-start" data-act="begin" aria-label="Click anywhere to begin"></button>' : ''}
       <div class="title-box ${gated ? 'gated' : ''}">
         <h1 aria-label="Tradewaters">${[...'Tradewaters'].map((c, i) => `<span style="--i:${i}">${c}</span>`).join('')}</h1>
         <p class="tag">Buy low. Sell high. Outrun the pirates.</p>
-        <div class="col">
-          <button class="big" data-act="new">New Voyage</button>
-          ${saved ? `<button class="big ghost" data-act="continue">Continue: ${esc(saved.name)}, ${dateStr(saved.day)}</button>` : ''}
-          <button class="ghost" data-act="help">How to Play</button>
+        <div class="menu-area">
+          ${gated ? '<div class="press-hint"><span>⚓ Click anywhere to begin ⚓</span></div>' : ''}
+          <div class="col">
+            <button class="big" data-act="new">New Voyage</button>
+            ${saved ? `<button class="big ghost" data-act="continue">Continue: ${esc(saved.name)}, ${dateStr(saved.day)}</button>` : ''}
+            <button class="ghost" data-act="help">How to Play</button>
+          </div>
         </div>
       </div>`;
     TW.titleFX($('.title-fx', el));
