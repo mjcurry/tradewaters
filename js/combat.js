@@ -269,7 +269,7 @@
               const ok = S.guns.filter(g => !g.broken);
               if (ok.length) { ok[Math.floor(Math.random() * ok.length)].broken = true; say('A cannon was knocked out!'); }
             }
-          } else S.fx.push({ kind: 'splash', x: s.x1 + rand(-40, 40), y: S.py + 20, t: 0, life: 0.9 });
+          } else { S.fx.push({ kind: 'splash', x: s.x1 + rand(-40, 40), y: S.py + 20, t: 0, life: 0.9 }); if (Math.random() < 0.5) TW.sfx('splash'); }
         } else {
           const hitSet = s.all ? S.enemies.filter(e => e.alive) : [S.enemies[s.tgt]].filter(e => e && e.alive);
           if (s.hit || s.special) {
@@ -283,7 +283,7 @@
               }
             }
             TW.sfx(s.special ? 'boom' : 'hitFar');
-          } else S.fx.push({ kind: 'splash', x: s.x1 + rand(-30, 30), y: s.y1 + 20, t: 0, life: 0.9 });
+          } else { S.fx.push({ kind: 'splash', x: s.x1 + rand(-30, 30), y: s.y1 + 20, t: 0, life: 0.9 }); if (Math.random() < 0.35) TW.sfx('splash'); }
         }
       }
     }

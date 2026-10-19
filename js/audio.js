@@ -1,5 +1,7 @@
-// Synthesized sound effects (no audio files needed) and an optional music player that
-// plays files dropped into assets/music/ (see assets/music/README.md).
+// Sound effects, ambience and music. Effects are recorded samples in assets/sfx/
+// (generated with ElevenLabs); each also has a small synthesized stand-in that plays until
+// its sample has loaded, or if it fails to. Ambience loops quietly under the music, and
+// music plays the files in assets/music/ (see assets/music/README.md).
 (function () {
   let ac = null, master = null;
   const settings = { sfx: true, music: true };
@@ -35,12 +37,75 @@
     o.connect(g); g.connect(master); o.start(); o.stop(a.currentTime + dur);
   }
 
+  // name → sample files (several takes are picked at random), and a level for each.
+  const SAMPLES = {
+    cannon: ['cannon', 'cannon-2'], cannonFar: ['cannon-far'], hit: ['hit'], hitFar: ['hit-far'], splash: ['splash'],
+    boom: ['boom'], sink: ['sink'], coins: ['coins'], click: ['click'], bell: ['bell'], storm: ['storm'], bad: ['bad'],
+    door: ['door'], map: ['map'], sail: ['sail'], anchor: ['anchor'], hammer: ['hammer'], mug: ['mug'], crate: ['crate'],
+    quill: ['quill'], cheer: ['cheer'],
+  };
+  const LEVEL = { cannon: 0.75, cannonFar: 0.45, hit: 0.8, hitFar: 0.45, splash: 0.35, boom: 0.9, sink: 0.7, coins: 0.7, click: 0.35,
+    bell: 0.55, storm: 0.8, bad: 0.6, door: 0.6, map: 0.7, sail: 0.6, anchor: 0.6, hammer: 0.6, mug: 0.6, crate: 0.6, quill: 0.6, cheer: 0.6 };
+  const VARY = new Set(['cannon', 'cannonFar', 'hit', 'hitFar', 'splash', 'boom', 'coins', 'click', 'crate']);  // pitch-jitter these
+  const MAX_VOICES = { cannon: 5, cannonFar: 4, hit: 3, hitFar: 3, splash: 3 };
+  const buffers = {}, voices = {};
+  TW.loadSfx = function () {
+    const a = ctx(); if (!a || !window.fetch) return Promise.resolve();
+    const files = new Set([...Object.values(SAMPLES).flat(), 'amb-port', 'amb-sea']);
+    return Promise.all([...files].map(f => fetch(`assets/sfx/${f}.mp3`)
+      .then(r => (r.ok ? r.arrayBuffer() : Promise.reject()))
+      .then(data => new Promise((res, rej) => a.decodeAudioData(data, res, rej)))
+      .then(buf => { buffers[f] = buf; }, () => {})))
+      .then(() => { if (ambName && !amb) { const n = ambName; ambName = null; TW.ambience(n); } });
+  };
+  function playSample(name) {
+    const takes = (SAMPLES[name] || []).map(f => buffers[f]).filter(Boolean);
+    if (!takes.length) return false;
+    const a = ctx(); if (!a) return true;
+    if ((voices[name] || 0) >= (MAX_VOICES[name] || 8)) return true;
+    const src = a.createBufferSource(), g = a.createGain();
+    src.buffer = takes[Math.floor(Math.random() * takes.length)];
+    if (VARY.has(name)) src.playbackRate.value = 0.92 + Math.random() * 0.16;
+    g.gain.value = LEVEL[name] ?? 0.6;
+    src.connect(g); g.connect(master);
+    voices[name] = (voices[name] || 0) + 1;
+    src.onended = () => { voices[name]--; };
+    src.start();
+    return true;
+  }
+
+  // Looping ambience under the music: the harbor in port, wind and timbers at sea.
+  let amb = null, ambName = null;
+  TW.ambience = function (name) {
+    if (ambName === name && amb) return;
+    ambName = name;
+    stopAmbience();
+    if (!name || !settings.sfx) return;
+    const a = ctx(), buf = buffers['amb-' + name];
+    if (!a || !buf) return;
+    const src = a.createBufferSource(), g = a.createGain();
+    // Loop just inside the clip: MP3 encoder padding at either end would click at the seam.
+    src.buffer = buf; src.loop = true; src.loopStart = 0.03; src.loopEnd = buf.duration - 0.03;
+    g.gain.setValueAtTime(0, a.currentTime); g.gain.linearRampToValueAtTime(0.22, a.currentTime + 1.5);
+    src.connect(g); g.connect(master); src.start();
+    amb = { src, g };
+  };
+  function stopAmbience() {
+    if (!amb) return;
+    const { src, g } = amb, a = ctx(); amb = null;
+    g.gain.cancelScheduledValues(a.currentTime); g.gain.setValueAtTime(g.gain.value, a.currentTime);
+    g.gain.linearRampToValueAtTime(0, a.currentTime + 0.8);
+    src.stop(a.currentTime + 0.9);
+  }
+
   let lastCannon = 0;
   TW.sfx = function (name) {
     if (!settings.sfx) return;
     const now = performance.now();
+    if (name === 'cannon') { if (now - lastCannon < 60) return; lastCannon = now; }
+    if (playSample(name)) return;
     switch (name) {
-      case 'cannon': if (now - lastCannon < 60) return; lastCannon = now; noise(0.5, 600, 0.9, 3); tone(70, 0.3, 'sine', 0.4, -30); break;
+      case 'cannon': noise(0.5, 600, 0.9, 3); tone(70, 0.3, 'sine', 0.4, -30); break;
       case 'cannonFar': noise(0.4, 350, 0.35, 3); break;
       case 'hit': noise(0.35, 1800, 0.6, 2); tone(140, 0.2, 'square', 0.08, -80); break;
       case 'hitFar': noise(0.25, 1200, 0.25, 2); break;
@@ -105,16 +170,24 @@
     }, 30);
   }
   TW.audioSettings = settings;
+  // For automated checks: which samples have decoded, and how many copies of each are playing.
+  TW._audioDebug = { buffers, voices, SAMPLES, get ambience() { return amb ? ambName : null; } };
   TW.toggleAudio = function (key) {
     settings[key] = !settings[key]; saveSettings();
     if (key === 'music') {
       if (settings.music) { const c = current; current = null; TW.music(c); }
       else stopCurrent();   // keep `current` so turning music back on resumes this screen's track
     }
+    // Turning effects off silences the ambience but remembers it, so turning them back on resumes it.
+    if (key === 'sfx') { if (settings.sfx) { const n = ambName; ambName = null; TW.ambience(n); } else stopAmbience(); }
     return settings[key];
   };
   // Browsers block audio until the first user gesture.
-  const unlock = () => { ctx(); if (current && audio && audio.paused && audio.src && settings.music) start(audio, current); };
+  const unlock = () => {
+    ctx();
+    if (current && audio && audio.paused && audio.src && settings.music) start(audio, current);
+    if (ambName && !amb) { const n = ambName; ambName = null; TW.ambience(n); }
+  };
   document.addEventListener('pointerdown', unlock);
   document.addEventListener('keydown', unlock);
 })();

@@ -277,11 +277,67 @@
     el.className = 'screen-' + view.screen;
     ({ title: renderTitle, newgame: renderNew, port: renderPort, map: renderMap, combat: () => {}, end: renderEnd })[view.screen](el);
   }
-  function go(screen, opts = {}) {
-    if (view.screen === 'map' && screen !== 'map') stopMapLoop();
+  function go(screen, opts = {}, origin) {
+    const from = view.screen;
+    if (from === 'map' && screen !== 'map') stopMapLoop();
     Object.assign(view, { screen }, opts);
     TW.music({ title: 'title', newgame: 'title', port: view.place === 'tavern' ? 'tavern' : 'port', map: 'sea', combat: 'combat', end: 'victory' }[screen]);
-    render();
+    TW.ambience({ port: 'port', map: 'sea', combat: 'sea' }[screen] || null);
+    const kind = from === screen ? null
+      : from === 'port' && screen === 'map' ? 'chart'
+      : from === 'map' && screen === 'port' ? 'landfall' : 'fade';
+    if (kind === 'chart') TW.sfx('map');
+    if (kind) transition(kind, render, origin); else render();
+  }
+
+  // ---------- transitions ----------
+  // Moving between the chart, a port and its buildings animates, as in the original. The
+  // old view is snapshotted into an overlay that plays its exit while the new view, already
+  // rendered underneath, plays its entrance, so rendering itself stays synchronous.
+  // `origin` (CSS transform-origin within #screen) aims zooms at a building or a port.
+  const T_MS = 750;
+  let ghostEl = null;
+  function transition(kind, update, origin) {
+    const el = $('#screen');
+    if (ghostEl) { ghostEl.remove(); ghostEl = null; }
+    const calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (calm || !el.firstElementChild) return update();
+    const r = el.getBoundingClientRect();
+    const ghost = el.cloneNode(true);
+    // Canvases clone without their pixels; copy them across.
+    const src = el.querySelectorAll('canvas'), dst = ghost.querySelectorAll('canvas');
+    src.forEach((c, i) => { try { dst[i].getContext('2d').drawImage(c, 0, 0); } catch (e) {} });
+    ghost.querySelectorAll('video, audio').forEach(n => n.remove());
+    ghost.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
+    ghost.removeAttribute('id');
+    ghost.classList.add('t-out-' + kind);
+    ghost.style.transformOrigin = origin || '';
+    // A fixed frame over #screen clips the snapshot so zooms stay inside the play area.
+    const frame = document.createElement('div');
+    frame.className = 't-ghost'; frame.setAttribute('aria-hidden', 'true');
+    Object.assign(frame.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+    frame.appendChild(ghost);
+    document.body.appendChild(ghostEl = frame);
+    const ghostRoot = ghostEl;
+    update();
+    el.classList.add('t-in-' + kind);
+    el.style.transformOrigin = origin || '';
+    setTimeout(() => {
+      if (ghostEl === ghostRoot) { ghostRoot.remove(); ghostEl = null; }
+      el.classList.remove('t-in-' + kind);
+      el.style.transformOrigin = '';
+    }, T_MS);
+  }
+  // The centre of an element, or of a port on the chart, as a transform-origin in #screen.
+  function originOf(rect) {
+    const s = $('#screen').getBoundingClientRect();
+    return `${Math.round(rect.left + rect.width / 2 - s.left)}px ${Math.round(rect.top + rect.height / 2 - s.top)}px`;
+  }
+  function portOrigin(id) {
+    const c = $('#map'), p = TW.PORT[id];
+    if (!c || !p) return undefined;
+    const r = c.getBoundingClientRect(), x = r.left + p.x / TW.MAP.w * r.width, y = r.top + p.y / TW.MAP.h * r.height;
+    return originOf({ left: x, top: y, width: 0, height: 0 });
   }
 
   // Browsers won't play music until the visitor clicks or presses a key, so on a cold
@@ -414,6 +470,26 @@
           <button class="sail" data-act="open-map">⛵ Set Sail</button>
         </div>
       </div>`;
+    // On a first visit the scene may still be downloading: keep the whole view hidden
+    // until it has decoded, rather than showing buildings over an empty sky.
+    const scene = preloadScene(p.id);
+    if (!scene.ready) {
+      const box = el.querySelector('.city-scene');
+      box.classList.add('scene-pending');
+      scene.promise.then(() => box.classList.remove('scene-pending'));
+    }
+  }
+
+  // Port scenes are fetched and decoded ahead of time (when a voyage is planned or begins),
+  // so making landfall shows the whole town at once.
+  const scenes = {};
+  function preloadScene(id) {
+    if (scenes[id]) return scenes[id];
+    const img = new Image(), entry = { img, ready: false };
+    img.src = `assets/img/ports/${id}.jpg`;
+    const loaded = img.decode ? img.decode() : new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+    entry.promise = loaded.catch(() => {}).then(() => { entry.ready = true; });
+    return scenes[id] = entry;
   }
 
   // Context the keepers' dialogue can react to.
@@ -459,6 +535,7 @@
   // Keeper portraits: the monogram underneath only shows if the picture fails to load.
   // A portrait fades in the first time it loads; once it has, re-renders show it at once.
   const portraitsReady = new Set();
+  const PORTRAIT_REV = 2;   // bump when portraits are re-rendered: they're cached for a week
   TW._portraitLoaded = img => { portraitsReady.add(img.getAttribute('src')); img.classList.remove('pending'); };
   TW._portraitFailed = img => { img.parentNode.classList.add('no-art'); img.remove(); };
   function portraitImg(src, alt) {
@@ -468,7 +545,7 @@
   // Fetch and decode this port's keepers while the captain is on the quay.
   function preloadKeepers(portId) {
     for (const b of portBuildings(TW.PORT[portId])) {
-      const src = `assets/img/chars/${portId}-${b}.jpg`;
+      const src = `assets/img/chars/${portId}-${b}.jpg?r=${PORTRAIT_REV}`;
       if (portraitsReady.has(src)) continue;
       const img = new Image(); img.src = src;
       (img.decode ? img.decode() : Promise.resolve()).then(() => portraitsReady.add(src), () => {});
@@ -484,7 +561,7 @@
           <div class="keeper-art" style="${bgStyle(INTERIOR[id])}">
             <button class="portrait" data-act="talk" title="Talk to ${ch.name}">
               <span class="monogram">${ch.name.replace(/[“”"].*?[“”"]\s*/g, '').split(' ').filter(w => /^[A-ZÁÉÍÓÚÑ]/.test(w)).slice(-2).map(w => w[0]).join('')}</span>
-              ${portraitImg(`assets/img/chars/${S.port}-${id}.jpg`, ch.name)}</button>
+              ${portraitImg(`assets/img/chars/${S.port}-${id}.jpg?r=${PORTRAIT_REV}`, ch.name)}</button>
           </div>
           <div class="keeper-name">${ch.name}<small>${ch.title}</small></div>
           <div class="speech"><p class="speech-text"></p></div>
@@ -611,6 +688,7 @@
       const cost = TW.quoteBuy(S, S.port, id, q).total;
       if (cost > S.cash) { speak('cantAfford'); return render(); }
       TW.applyBuy(S, S.port, id, q);
+      TW.sfx('crate');
       S.cash -= cost;
       const c = S.ship.cargo[id] || (S.ship.cargo[id] = { qty: 0, cost: 0 });
       c.cost = (c.cost * c.qty + cost) / (c.qty + q); c.qty += q;
@@ -789,6 +867,7 @@
   }
 
   function confirmSail(p) {
+    preloadScene(p.id);
     const r = TW.route(S.port, p.id), days = travelDays(r);
     const d = shipDef();
     const warn = [];
@@ -825,7 +904,9 @@
   }
 
   function startVoyage(dest, route, days) {
+    preloadScene(dest);
     S.stats.voyages++;
+    TW.sfx('sail');
     const scale = Math.max(0.5, Math.min(1.6, route.len / 350));
     const events = [];
     if (Math.random() < 0.12 * scale) events.push({ t: rand(0.2, 0.8), kind: 'storm' });
@@ -997,13 +1078,16 @@
     view.screen = 'combat';
     TW.music('combat');
     hud();
-    const el = $('#screen'); el.className = 'screen-combat';
+    const el = $('#screen');
+    transition('battle', () => {
+    el.className = 'screen-combat';
     el.innerHTML = `<div class="combat-wrap"><canvas id="combat" width="960" height="540"></canvas></div>
       <div class="combat-bar">
         <span class="hint">${fleet.port ? 'Click the fort, a battery or a ship to target it.' : 'Click an enemy ship to target it.'} Cannons fire on their own.</span>
         ${TW.AMMO.map(a => `<button id="ammo-${a.id}" data-act="special" data-ammo="${a.id}" title="${a.desc}">${a.name} <span class="n">0</span></button>`).join('')}
         <button id="btn-flee" class="ghost" data-act="flee">Flee</button>
       </div>`;
+    });
     const before = { hull: S.ship.hull, broken: S.ship.broken, ammo: { ...S.ammo }, worth: worth() };
     TW.Combat.start($('#combat'), { ship: S.ship, enemies: fleet.ships, ammo: S.ammo, port: fleet.port }, res => {
       TW.Combat.stop();
@@ -1018,7 +1102,7 @@
     const backToMap = (then, track = 'sea') => {
       view.screen = 'map'; TW.music(track);
       const saved = mapState.voyage;
-      render();
+      transition('fade', render);
       mapState.voyage = saved;
       $('#btn-back').hidden = true;
       $('#map-status').innerHTML = `Sailing to <b>${TW.PORT[saved.dest].name}</b>…`;
@@ -1031,6 +1115,7 @@
       const haul = `${fmt(booty)} gold${loot.length ? ' and ' + loot.map(l => `${l.qty} ${l.name.toLowerCase()}`).join(', ') : ''}`;
       log(fleet.port ? `Liberated ${TW.PORT[fleet.port].name} from ${fleet.captain}'s pirates and took ${haul}.`
         : `Defeated ${fleet.captain}'s pirates and took ${haul}.`);
+      TW.sfx('cheer');
       backToMap(() => showPlunder(v, fleet, spoils, booty, loot, before), 'victory');
     } else if (res.outcome === 'fled' && fleet.port) {
       S.stats.fled++;
@@ -1195,10 +1280,10 @@
     remember(); checkMilestones(); save();
     if (S.mode === 'career' && S.day >= CAREER_DAYS) return go('end');
     view.place = 'city'; view.speech = null;
-    TW.sfx('bell');
+    TW.sfx('anchor');
     const delivered = deliverContracts();
     const collected = collectDebt();
-    go('port');
+    go('port', {}, portOrigin(dest));
     const showDebt = () => collected && modal(`<h2>Debt collectors!</h2>
       <p>Hard-faced men are waiting on the quay with your overdue note. They take <b>${gold(collected.take)}</b>, including a ${fmt(collected.fee)} gold collection fee.</p>
       ${collected.left ? `<p class="bad">You still owe ${gold(collected.left)}, and it keeps growing at 15% a month.</p>` : '<p>Your debt is settled.</p>'}`, [['Grumble and pay', null, 'big']]);
@@ -1281,18 +1366,21 @@
     'toggle-music': () => { TW.toggleAudio('music'); hud(); },
     'enter': (b) => {
       view.place = b.dataset.place; view.speech = null;
-      TW.music(view.place === 'tavern' ? 'tavern' : 'port'); render();
+      view.doorway = originOf(b.getBoundingClientRect());
+      TW.music(view.place === 'tavern' ? 'tavern' : 'port');
+      TW.sfx('door');
+      transition('enter', render, view.doorway);
       // First visit to each port is remembered so keepers can remark on it.
       (S.visited || (S.visited = {}))[S.port] = true;
     },
-    'to-city': () => { view.place = 'city'; view.speech = null; TW.music('port'); render(); },
+    'to-city': () => { view.place = 'city'; view.speech = null; TW.music('port'); transition('leave', render, view.doorway); },
     'talk': () => { speak('idle'); typeSpeech(); },
     'take-contract': (b) => {
       if (contracts().length >= TW.MAX_CONTRACTS) return toast('You can hold three contracts at most.', 'bad');
       const c = TW.takeOffer(S, S.port, b.dataset.where, b.dataset.id);
       if (!c) return;
       log(`Accepted a contract: ${TW.describeContract(c).toLowerCase()} by ${dateStr(c.due)} for ${fmt(c.reward)} gold.`);
-      speak(c.kind === 'smuggle' ? 'smuggle' : 'contract'); TW.sfx('click'); save(); render();
+      speak(c.kind === 'smuggle' ? 'smuggle' : 'contract'); TW.sfx('quill'); save(); render();
     },
     'abandon-contract': (b) => {
       const c = contracts().find(x => x.id === b.dataset.id); if (!c) return;
@@ -1316,47 +1404,47 @@
     'sell': (b) => trade('sell', b.dataset.good),
     'rumor': () => {
       if (S.cash < 50) { speak('broke'); return render(); }
-      S.cash -= 50;
+      S.cash -= 50; TW.sfx('mug');
       view.speech = { who: 'tavern', text: TW.line('tavern', 'rumor', talkContext()) + ' ' + TW.rumor(S).replace(/<[^>]+>/g, ''), id: Math.random() };
       render();
     },
     'chart': () => {
       const cost = 2500 + 2000 * Math.max(0, S.known.length - 9);
       if (S.cash < cost) { speak('broke'); return render(); }
-      S.cash -= cost; const p = revealPort();
+      S.cash -= cost; const p = revealPort(); TW.sfx('map');
       speak('chart', `Here's a chart to ${p.name}.`);
       toast(`New port charted: <b>${p.name}</b>`, 'good');
       log(`Bought a sea chart to ${p.name}.`); save(); render();
     },
-    'wait': () => { for (let i = 0; i < 3; i++) passDay(); remember(); save();
+    'wait': () => { TW.sfx('mug'); for (let i = 0; i < 3; i++) passDay(); remember(); save();
       speak('wait');
       if (S.mode === 'career' && S.day >= CAREER_DAYS) return go('end'); render(); },
     'repair': () => {
       const d = shipDef(), rate = 40 + 15 * TW.SHIPS.indexOf(d);
       const n = Math.min(d.hull - S.ship.hull, Math.floor(S.cash / rate));
       if (n <= 0) { speak('cantAfford'); return render(); }
-      S.cash -= n * rate; S.ship.hull += n; toast(`Repaired ${n} hull for ${fmt(n * rate)} gold`); log(`Repaired the hull in ${port().name} for ${fmt(n * rate)} gold.`); speak('repair'); save(); render();
+      S.cash -= n * rate; S.ship.hull += n; toast(`Repaired ${n} hull for ${fmt(n * rate)} gold`); log(`Repaired the hull in ${port().name} for ${fmt(n * rate)} gold.`); TW.sfx('hammer'); speak('repair'); save(); render();
     },
     'fixguns': () => {
       const n = Math.min(S.ship.broken, Math.floor(S.cash / 400));
       if (n <= 0) { speak('cantAfford'); return render(); }
-      S.cash -= n * 400; S.ship.broken -= n; speak('repair'); save(); render();
+      S.cash -= n * 400; S.ship.broken -= n; TW.sfx('hammer'); speak('repair'); save(); render();
     },
     'gun-buy': () => {
       if (S.cash < TW.CANNON_PRICE) { speak('cantAfford'); return render(); }
       if (freeSpace() < TW.GUN_SPACE) return toast('No room in the hold for another cannon.', 'bad');
       if (S.ship.guns >= shipDef().guns) return;
-      S.cash -= TW.CANNON_PRICE; S.ship.guns++; log(`Mounted a new cannon (${S.ship.guns} aboard).`); speak('buyGun'); save(); render();
+      S.cash -= TW.CANNON_PRICE; S.ship.guns++; log(`Mounted a new cannon (${S.ship.guns} aboard).`); TW.sfx('hammer'); speak('buyGun'); save(); render();
     },
     'gun-sell': () => {
       if (!S.ship.guns) return;
       S.ship.guns--; if (S.ship.broken > S.ship.guns) S.ship.broken = S.ship.guns;
-      S.cash += TW.CANNON_PRICE / 2; log(`Sold a cannon (${S.ship.guns} left).`); speak('sellGun'); save(); render();
+      S.cash += TW.CANNON_PRICE / 2; log(`Sold a cannon (${S.ship.guns} left).`); TW.sfx('crate'); speak('sellGun'); save(); render();
     },
     'ammo': (b) => {
       const a = TW.AMMO_BY[b.dataset.ammo];
       if (S.cash < a.price) { speak('cantAfford'); return render(); }
-      S.cash -= a.price; S.ammo[a.id]++; log(`Bought a ${a.name.toLowerCase()} for ${fmt(a.price)} gold.`); speak('ammo'); save(); render();
+      S.cash -= a.price; S.ammo[a.id]++; log(`Bought a ${a.name.toLowerCase()} for ${fmt(a.price)} gold.`); TW.sfx('crate'); speak('ammo'); save(); render();
     },
     'buyship': (b) => {
       const id = b.dataset.ship, price = +b.dataset.price, d = shipDef(), nd = TW.SHIP[id];
@@ -1374,19 +1462,19 @@
           log(`Bought a ${nd.name}. A fine vessel!`); TW.sfx('bell'); speak('buyShip'); save(); render();
         }, 'big'], ['Cancel', null, 'ghost']]);
     },
-    'deposit': () => { const a = Math.min(amount(), S.cash); S.cash -= a; S.bank += a; if (a) log(`Deposited ${fmt(a)} gold in the bank.`); speak(a ? 'deposit' : 'nothing'); save(); render(); },
-    'withdraw': () => { const a = Math.min(amount(), S.bank); S.bank -= a; S.cash += a; if (a) log(`Withdrew ${fmt(a)} gold from the bank.`); speak(a ? 'withdraw' : 'nothing'); save(); render(); },
-    'deposit-all': () => { const a = S.cash; S.bank += S.cash; S.cash = 0; if (a) log(`Deposited ${fmt(a)} gold in the bank.`); speak(a ? 'deposit' : 'nothing'); save(); render(); },
-    'withdraw-all': () => { const a = S.bank; S.cash += S.bank; S.bank = 0; if (a) log(`Withdrew ${fmt(a)} gold from the bank.`); speak(a ? 'withdraw' : 'nothing'); save(); render(); },
+    'deposit': () => { const a = Math.min(amount(), S.cash); S.cash -= a; S.bank += a; if (a) log(`Deposited ${fmt(a)} gold in the bank.`); if (a) TW.sfx('coins'); speak(a ? 'deposit' : 'nothing'); save(); render(); },
+    'withdraw': () => { const a = Math.min(amount(), S.bank); S.bank -= a; S.cash += a; if (a) log(`Withdrew ${fmt(a)} gold from the bank.`); if (a) TW.sfx('coins'); speak(a ? 'withdraw' : 'nothing'); save(); render(); },
+    'deposit-all': () => { const a = S.cash; S.bank += S.cash; S.cash = 0; if (a) log(`Deposited ${fmt(a)} gold in the bank.`); if (a) TW.sfx('coins'); speak(a ? 'deposit' : 'nothing'); save(); render(); },
+    'withdraw-all': () => { const a = S.bank; S.cash += S.bank; S.bank = 0; if (a) log(`Withdrew ${fmt(a)} gold from the bank.`); if (a) TW.sfx('coins'); speak(a ? 'withdraw' : 'nothing'); save(); render(); },
     'borrow': () => {
       const max = loanLimit();
       const a = Math.min(amount(), max);
       if (!a) { if (max) return toast('Enter an amount.', 'bad'); speak('refused'); return render(); }
       if (!S.debt) S.loanDue = S.day + LOAN_TERM;
-      S.cash += a; S.debt += a; log(`Borrowed ${fmt(a)} gold from the moneylender, due ${dateStr(S.loanDue)}.`); speak('borrow'); save(); render();
+      S.cash += a; S.debt += a; log(`Borrowed ${fmt(a)} gold from the moneylender, due ${dateStr(S.loanDue)}.`); TW.sfx('quill'); speak('borrow'); save(); render();
     },
-    'repay': () => { const a = Math.min(amount(), S.cash, S.debt); S.cash -= a; S.debt -= a; if (!S.debt) S.loanDue = 0; if (a) { log(`Repaid ${fmt(a)} gold to the moneylender.`); speak(S.debt ? 'repay' : 'repayAll'); } save(); render(); },
-    'repay-all': () => { const a = Math.min(S.cash, S.debt); S.cash -= a; S.debt -= a; if (!S.debt) { S.loanDue = 0; log('Paid off the moneylender in full.'); speak('repayAll'); } save(); render(); },
+    'repay': () => { const a = Math.min(amount(), S.cash, S.debt); S.cash -= a; S.debt -= a; if (!S.debt) S.loanDue = 0; if (a) { TW.sfx('quill'); log(`Repaid ${fmt(a)} gold to the moneylender.`); speak(S.debt ? 'repay' : 'repayAll'); } save(); render(); },
+    'repay-all': () => { const a = Math.min(S.cash, S.debt); S.cash -= a; S.debt -= a; if (!S.debt) { S.loanDue = 0; log('Paid off the moneylender in full.'); TW.sfx('quill'); speak('repayAll'); } save(); render(); },
     'special': (b) => TW.Combat.special(b.dataset.ammo),
     'flee': () => TW.Combat.flee(),
   };
@@ -1434,7 +1522,8 @@
       new Promise(r => setTimeout(r, 2500)),
     ]);
     TW.initMap();
-    await Promise.all([loadImages(), TW.loadShipArt()]);
+    TW.loadSfx();   // not awaited: until a sample decodes, its synthesized stand-in plays
+    await Promise.all([loadImages(), TW.loadShipArt(), TW.loadMapArt()]);
     predecodeBuildings();
     go('title');
   };

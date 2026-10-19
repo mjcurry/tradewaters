@@ -161,50 +161,191 @@
   // ---------- Rendering ----------
   let baseLayer = null;
 
+  // ---------- The chart ----------
+  // Drawn as an old sea chart on parchment: rhumb lines, water-lined coasts, washed land
+  // and a graduated border. The painted pieces (parchment, compass rose, sea serpent,
+  // title cartouche) load with TW.loadMapArt(); until then the chart uses plain fills.
+  const ART = {};
+  const INK = '#3b2a1a';
+  const COMPASS = { x: 715, y: 405, r: 58 };       // open water in the central Caribbean
+  const SERPENT = { x: 150, y: 128, w: 120 };      // the Gulf of Mexico
+  const CARTOUCHE = { x: 1018, y: 96, w: 250 };    // the open Atlantic, top right
+  TW.loadMapArt = function () {
+    const files = { parchment: 'parchment.jpg', compass: 'compass.webp', serpent: 'serpent.webp', cartouche: 'cartouche.webp' };
+    return Promise.all(Object.entries(files).map(([k, f]) => new Promise(res => {
+      const img = new Image();
+      img.onload = () => { ART[k] = img; res(); };
+      img.onerror = () => res();
+      img.src = 'assets/img/map/' + f;
+    }))).then(renderBase);
+  };
+
   function renderBase() {
     const c = document.createElement('canvas');
     c.width = M.w * 2; c.height = M.h * 2;
     const ctx = c.getContext('2d');
     ctx.scale(2, 2);
-    const sea = ctx.createRadialGradient(M.w * 0.55, M.h * 0.5, 50, M.w * 0.55, M.h * 0.5, M.w * 0.75);
-    sea.addColorStop(0, '#3fa7b5'); sea.addColorStop(1, '#1d5f7a');
+    // Parchment, washed sea-green where there is water.
+    if (ART.parchment) ctx.drawImage(ART.parchment, 0, 0, M.w, M.h);
+    else { ctx.fillStyle = '#eadcb5'; ctx.fillRect(0, 0, M.w, M.h); }
+    ctx.globalCompositeOperation = 'multiply';
+    const sea = ctx.createRadialGradient(M.w * 0.55, M.h * 0.5, 60, M.w * 0.55, M.h * 0.5, M.w * 0.7);
+    sea.addColorStop(0, 'rgba(150,200,195,0.55)'); sea.addColorStop(1, 'rgba(110,165,170,0.7)');
     ctx.fillStyle = sea; ctx.fillRect(0, 0, M.w, M.h);
-    // Latitude / longitude graticule
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    // Rhumb lines from the compass rose and a second wind-rose point in the Gulf.
+    ctx.strokeStyle = 'rgba(70,45,25,0.16)'; ctx.lineWidth = 0.7;
+    for (const [cx, cy] of [[COMPASS.x, COMPASS.y], [235, 175]]) for (let i = 0; i < 32; i++) {
+      const a = i * Math.PI / 16;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * 1600, cy + Math.sin(a) * 1600); ctx.stroke();
+    }
+    // Faint latitude and longitude lines.
+    ctx.strokeStyle = 'rgba(70,45,25,0.12)'; ctx.setLineDash([2, 4]);
     for (let lon = -95; lon <= -60; lon += 5) { const [x] = TW.project(lon, 0); ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, M.h); ctx.stroke(); }
     for (let lat = 10; lat <= 25; lat += 5) { const [, y] = TW.project(0, lat); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(M.w, y); ctx.stroke(); }
-    // Shallow-water halo, then sand, then land
-    ctx.save();
+    ctx.setLineDash([]);
+    // Pale shallows, then concentric water-lines around every coast.
     ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'rgba(160,230,220,0.35)'; ctx.lineWidth = 14; ctx.fillStyle = 'rgba(160,230,220,0.35)';
-    strokeAll(ctx);
-    ctx.strokeStyle = '#e8d6a3'; ctx.lineWidth = 4; strokeAll(ctx);
-    ctx.fillStyle = '#7fae6a'; ctx.strokeStyle = '#7fae6a'; ctx.lineWidth = 1.5;
-    for (const ring of TW.LAND) { pathRing(ctx, ring); ctx.fill(); ctx.stroke(); }
+    ctx.strokeStyle = 'rgba(250,244,225,0.45)'; ctx.lineWidth = 16; strokeRings(ctx);
+    for (const [d, a] of [[3, 0.55], [6.5, 0.4], [10.5, 0.28], [15, 0.18]]) waterLine(ctx, d, `rgba(40,85,100,${a})`);
+    // Land: an ochre wash with a greener band along the shore, inked coastline.
+    ctx.save();
+    ctx.beginPath(); for (const ring of TW.LAND) addRing(ctx, ring);
+    ctx.fillStyle = 'rgba(205,180,120,0.62)'; ctx.fill();
+    ctx.clip();
+    ctx.strokeStyle = 'rgba(110,140,70,0.45)'; ctx.lineWidth = 10; strokeRings(ctx);
+    ctx.strokeStyle = 'rgba(110,140,70,0.25)'; ctx.lineWidth = 22; strokeRings(ctx);
     ctx.restore();
-    // Compass rose
-    drawCompass(ctx, 1060, 500, 38);
+    drawHills(ctx);
+    ctx.strokeStyle = INK; ctx.lineWidth = 1.1; strokeRings(ctx);
+    // Title cartouche.
+    if (ART.cartouche) {
+      const w = CARTOUCHE.w, h = w * ART.cartouche.height / ART.cartouche.width;
+      ctx.drawImage(ART.cartouche, CARTOUCHE.x - w / 2, CARTOUCHE.y - h / 2, w, h);
+    }
+    ctx.textAlign = 'center'; ctx.fillStyle = INK;
+    ctx.font = '16px "IM Fell English SC", Georgia, serif';
+    ctx.fillText('Mare Caribbæum', CARTOUCHE.x, CARTOUCHE.y - 11);
+    ctx.font = 'italic 8px "IM Fell English", Georgia, serif';
+    ctx.fillText('The Western Indies · Anno 1700', CARTOUCHE.x, CARTOUCHE.y);
+    // Darkened, toasted edges and a graduated double border.
+    const v = ctx.createRadialGradient(M.w / 2, M.h / 2, M.h * 0.45, M.w / 2, M.h / 2, M.w * 0.62);
+    v.addColorStop(0, 'rgba(90,55,20,0)'); v.addColorStop(1, 'rgba(90,55,20,0.38)');
+    ctx.fillStyle = v; ctx.fillRect(0, 0, M.w, M.h);
+    drawBorder(ctx);
     baseLayer = c;
   }
-  function pathRing(ctx, ring) {
-    ctx.beginPath();
+  // Little inked hills scattered over the interior of the larger landmasses, placed by a
+  // fixed hash so they never move between visits.
+  function drawHills(ctx) {
+    const inland = (q, r) => { for (let dr = -3; dr <= 3; dr++) for (let dq = -3; dq <= 3; dq++) if (!land(q + dq, r + dr)) return false; return true; };
+    const near = TW.PORTS.map(p => [p.x, p.y]);
+    ctx.save(); ctx.lineWidth = 0.9; ctx.lineCap = 'round';
+    for (let r = 4; r < ROWS - 4; r += 3) for (let q = 4; q < COLS - 4; q += 3) {
+      const h = ((q * 73856093) ^ (r * 19349663)) >>> 0;
+      if (h % 100 > 11 || !inland(q, r)) continue;
+      const x = q * CELL + (h % 7) - 3, y = r * CELL + ((h >> 3) % 7) - 3, w = 5 + (h >> 6) % 4;
+      if (near.some(([px, py]) => Math.abs(px - x) < 60 && Math.abs(py - y) < 14)) continue;   // keep labels clear
+      ctx.fillStyle = 'rgba(120,95,55,0.35)';
+      ctx.beginPath(); ctx.moveTo(x - w, y); ctx.quadraticCurveTo(x - w * 0.2, y - w * 1.5, x + w * 0.2, y - w * 1.2); ctx.lineTo(x + w * 0.2, y); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(59,42,26,0.7)';
+      ctx.beginPath(); ctx.moveTo(x - w, y); ctx.quadraticCurveTo(x - w * 0.2, y - w * 1.6, x + w, y); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function addRing(ctx, ring) {
     ring.forEach(([lon, lat], i) => { const [x, y] = TW.project(lon, lat); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
     ctx.closePath();
   }
-  function strokeAll(ctx) { for (const ring of TW.LAND) { pathRing(ctx, ring); ctx.stroke(); ctx.fill(); } }
-  function drawCompass(ctx, x, y, r) {
-    ctx.save(); ctx.translate(x, y);
-    ctx.strokeStyle = 'rgba(255,248,230,0.7)'; ctx.fillStyle = 'rgba(255,248,230,0.85)'; ctx.lineWidth = 1.2;
-    ctx.beginPath(); ctx.arc(0, 0, r * 0.8, 0, Math.PI * 2); ctx.stroke();
-    for (let i = 0; i < 8; i++) {
-      const a = i * Math.PI / 4, len = i % 2 ? r * 0.55 : r;
-      ctx.beginPath(); ctx.moveTo(Math.cos(a) * len, Math.sin(a) * len);
-      ctx.lineTo(Math.cos(a + 0.3) * r * 0.18, Math.sin(a + 0.3) * r * 0.18);
-      ctx.lineTo(Math.cos(a - 0.3) * r * 0.18, Math.sin(a - 0.3) * r * 0.18); ctx.closePath();
-      i % 2 ? ctx.stroke() : ctx.fill();
+  function strokeRings(ctx) { for (const ring of TW.LAND) { ctx.beginPath(); addRing(ctx, ring); ctx.stroke(); } }
+  // One thin line following every coast at distance d, as old engravers drew the sea.
+  function waterLine(ctx, d, color) {
+    const o = document.createElement('canvas'); o.width = M.w * 2; o.height = M.h * 2;
+    const x = o.getContext('2d'); x.scale(2, 2); x.lineJoin = 'round';
+    x.strokeStyle = color; x.lineWidth = d * 2 + 1; strokeRings(x);
+    x.globalCompositeOperation = 'destination-out'; x.strokeStyle = '#000'; x.lineWidth = d * 2 - 0.6; strokeRings(x);
+    ctx.drawImage(o, 0, 0, M.w, M.h);
+  }
+  function drawBorder(ctx) {
+    ctx.save();
+    ctx.strokeStyle = INK; ctx.lineWidth = 1.6; ctx.strokeRect(4, 4, M.w - 8, M.h - 8);
+    ctx.lineWidth = 0.8; ctx.strokeRect(10, 10, M.w - 20, M.h - 20);
+    // Alternating scale bars between the two rules, a degree apart.
+    ctx.fillStyle = INK;
+    const step = TW.MAP.k;
+    for (let i = 0, x = 10; x < M.w - 10; i++, x += step) if (i % 2) {
+      const w = Math.min(step, M.w - 10 - x);
+      ctx.fillRect(x, 4.8, w, 5.2); ctx.fillRect(x, M.h - 10, w, 5.2);
     }
-    ctx.font = '16px "Pirata One", Georgia'; ctx.textAlign = 'center'; ctx.fillText('N', 0, -r - 6);
+    for (let i = 0, y = 10; y < M.h - 10; i++, y += step) if (i % 2) {
+      const h = Math.min(step, M.h - 10 - y);
+      ctx.fillRect(4.8, y, 5.2, h); ctx.fillRect(M.w - 10, y, 5.2, h);
+    }
     ctx.restore();
+  }
+  function drawCompass(ctx, t) {
+    const { x, y, r } = COMPASS;
+    ctx.save(); ctx.translate(x, y);
+    if (ART.compass) { ctx.globalAlpha = 0.88; ctx.drawImage(ART.compass, -r, -r, r * 2, r * 2); ctx.globalAlpha = 1; }
+    else {
+      ctx.strokeStyle = INK; ctx.fillStyle = INK; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(0, 0, r * 0.8, 0, Math.PI * 2); ctx.stroke();
+      for (let i = 0; i < 8; i++) {
+        const a = i * Math.PI / 4, len = i % 2 ? r * 0.55 : r;
+        ctx.beginPath(); ctx.moveTo(Math.cos(a) * len, Math.sin(a) * len);
+        ctx.lineTo(Math.cos(a + 0.3) * r * 0.18, Math.sin(a + 0.3) * r * 0.18);
+        ctx.lineTo(Math.cos(a - 0.3) * r * 0.18, Math.sin(a - 0.3) * r * 0.18); ctx.closePath();
+        i % 2 ? ctx.stroke() : ctx.fill();
+      }
+    }
+    // A brass needle that never quite settles.
+    ctx.rotate(Math.sin(t * 0.7) * 0.07 + Math.sin(t * 1.9) * 0.02);
+    ctx.fillStyle = '#8a1f14';
+    ctx.beginPath(); ctx.moveTo(0, -r * 0.62); ctx.lineTo(3.2, 0); ctx.lineTo(-3.2, 0); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(40,30,20,0.85)';
+    ctx.beginPath(); ctx.moveTo(0, r * 0.62); ctx.lineTo(3.2, 0); ctx.lineTo(-3.2, 0); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#c9a24a'; ctx.beginPath(); ctx.arc(0, 0, 2.6, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  function drawSerpent(ctx, t) {
+    if (!ART.serpent) return;
+    const { x, y, w } = SERPENT, h = w * ART.serpent.height / ART.serpent.width;
+    ctx.save(); ctx.translate(x, y + Math.sin(t * 0.9) * 2.2); ctx.rotate(Math.sin(t * 0.6) * 0.03);
+    ctx.globalAlpha = 0.9; ctx.drawImage(ART.serpent, -w / 2, -h / 2, w, h);
+    ctx.restore();
+  }
+
+  // Other ships working the sea lanes: a few merchantmen and the odd pirate sloop, sailing
+  // real routes between charted ports so the chart never sits still.
+  let traders = [], lastT = 0;
+  const TRADER_LOOKS = ['schooner', 'brigantine', 'barque', 'sloop'];   // the last one flies the black flag
+  function newLeg(s, ports, from) {
+    const options = ports.filter(id => id !== from);
+    s.from = from; s.to = options[Math.floor(Math.random() * options.length)];
+    s.route = TW.route(s.from, s.to); s.t = 0; s.speed = 9 + Math.random() * 6;
+  }
+  function moveTraders(ctx, state, t) {
+    const dt = lastT ? Math.min(0.1, t - lastT) : 0; lastT = t;
+    const ports = state.known.length > 1 ? state.known : TW.PORTS.map(p => p.id);
+    while (traders.length < TRADER_LOOKS.length) {
+      const k = traders.length, s = { k, look: TRADER_LOOKS[k], pirate: k === TRADER_LOOKS.length - 1 };
+      newLeg(s, ports, ports[Math.floor(Math.random() * ports.length)]);
+      s.t = Math.random();
+      traders.push(s);
+    }
+    for (const s of traders) {
+      if (!s.route || !s.route.len) { newLeg(s, ports, s.to || ports[0]); continue; }
+      s.t += dt * s.speed / s.route.len;
+      if (s.t >= 1) { newLeg(s, ports, s.to); continue; }
+      const pos = TW.pointAlong(s.route, Math.min(1, s.t));
+      const img = TW.shipArt && TW.shipArt(s.look, s.pirate);
+      if (!img) continue;
+      const w = 17, h = w * img.height / img.width;
+      ctx.save(); ctx.translate(pos.x, pos.y + Math.sin(t * 2 + s.k) * 0.6);
+      if (Math.cos(pos.ang) < 0) ctx.scale(-1, 1);
+      ctx.globalAlpha = 0.82; ctx.drawImage(img, -w / 2, 3 - h, w, h);
+      ctx.restore();
+    }
   }
 
   // The player's ship on the chart: its painted sprite when `look` is given and loaded,
@@ -237,17 +378,21 @@
     const { state } = opts;
     ctx.drawImage(baseLayer, 0, 0, M.w, M.h);
     const t = performance.now() / 1000;
-    // gentle wave glints
-    ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1;
-    for (let i = 0; i < 40; i++) {
-      const x = (i * 197 + t * 6) % M.w, y = (i * 83) % M.h;
+    // Inked wave marks drifting slowly across open water.
+    ctx.strokeStyle = 'rgba(45,80,95,0.32)'; ctx.lineWidth = 0.9;
+    for (let i = 0; i < 46; i++) {
+      const x = (i * 197 + t * 4) % M.w, y = (i * 83 + 20) % M.h;
       const q = Math.floor(x / CELL), r = Math.floor(y / CELL);
-      if (land(q, r)) continue;
-      ctx.beginPath(); ctx.arc(x, y + Math.sin(t + i) * 2, 4, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+      if (land(q, r) || land(q + 2, r) || land(q - 2, r)) continue;
+      const yy = y + Math.sin(t * 0.8 + i) * 1.5;
+      ctx.beginPath(); ctx.moveTo(x - 6, yy); ctx.quadraticCurveTo(x - 3, yy - 3, x, yy); ctx.quadraticCurveTo(x + 3, yy - 3, x + 6, yy); ctx.stroke();
     }
+    drawSerpent(ctx, t);
+    drawCompass(ctx, t);
+    moveTraders(ctx, state, t);
     if (opts.route) {
       ctx.save();
-      ctx.setLineDash([3, 6]); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,248,230,0.9)';
+      ctx.setLineDash([4, 5]); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(140,35,25,0.85)';
       ctx.beginPath(); opts.route.pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke();
       ctx.restore();
     }
@@ -255,23 +400,23 @@
       const known = state.known.includes(p.id), here = state.port === p.id && !opts.ship, hov = opts.hover === p.id;
       if ((state.contracts || []).some(c => c.to === p.id)) {   // contract destination: gold ring
         ctx.beginPath(); ctx.arc(p.x, p.y, 11 + Math.sin(performance.now() / 300) * 1.5, 0, Math.PI * 2);
-        ctx.lineWidth = 2.5; ctx.strokeStyle = '#f2b84b'; ctx.stroke();
+        ctx.lineWidth = 2.5; ctx.strokeStyle = '#c8901c'; ctx.stroke();
       }
       const seized = known && state.hostile && state.hostile[p.id];
       if (seized) {   // held by pirates: pulsing red ring and a skull
         ctx.beginPath(); ctx.arc(p.x, p.y, 12 + Math.sin(performance.now() / 250) * 1.5, 0, Math.PI * 2);
-        ctx.lineWidth = 2.5; ctx.strokeStyle = 'rgba(232,96,76,0.9)'; ctx.stroke();
-        ctx.font = '13px serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff8e6'; ctx.fillText('☠', p.x, p.y - 15);
+        ctx.lineWidth = 2.5; ctx.strokeStyle = 'rgba(178,40,28,0.9)'; ctx.stroke();
+        ctx.font = '13px serif'; ctx.textAlign = 'center'; ctx.fillStyle = INK; ctx.fillText('☠', p.x, p.y - 15);
       }
       ctx.beginPath(); ctx.arc(p.x, p.y, hov ? 8 : 6, 0, Math.PI * 2);
-      ctx.fillStyle = !known ? 'rgba(30,40,50,0.55)' : seized ? '#2b2b2b' : here ? '#f2b84b' : '#e8604c';
-      ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#fff8e6'; ctx.stroke();
+      ctx.fillStyle = !known ? 'rgba(90,70,50,0.45)' : seized ? '#2b2b2b' : here ? '#e0a832' : '#b8432f';
+      ctx.fill(); ctx.lineWidth = 1.6; ctx.strokeStyle = known ? INK : 'rgba(59,42,26,0.5)'; ctx.stroke();
       ctx.font = (hov ? '16px' : '15px') + ' "IM Fell English SC", Georgia, serif';
       ctx.textAlign = p.lon > -64 ? 'right' : 'left';
       const lx = p.x + (p.lon > -64 ? -11 : 11);
       const label = known ? p.name : '?';
-      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(20,40,55,0.85)'; ctx.strokeText(label, lx, p.y + 4);
-      ctx.fillStyle = known ? '#fff8e6' : '#c9d6dc'; ctx.fillText(label, lx, p.y + 4);
+      ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(244,234,205,0.8)'; ctx.strokeText(label, lx, p.y + 4);
+      ctx.fillStyle = known ? INK : 'rgba(59,42,26,0.55)'; ctx.fillText(label, lx, p.y + 4);
     }
     const look = state.ship && state.ship.type;
     if (opts.ship) TW.drawShipIcon(ctx, opts.ship.x, opts.ship.y, opts.ship.ang, 1.4, look);

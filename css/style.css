@@ -55,6 +55,38 @@ button { font-family: var(--font-ui); font-weight: 500; letter-spacing: 0.02em; 
 
 /* ---------- Generic UI ---------- */
 #screen { flex: 1; position: relative; }
+
+/* Screen transitions (see transition() in game.js). The ghost is a snapshot of the old
+   view laid over the new one: it plays the exit while #screen plays the entrance. */
+.city-scene.scene-pending { opacity: 0; transition: none; }
+.t-ghost { position: fixed; margin: 0; overflow: hidden; pointer-events: none; z-index: 900; }
+.t-ghost > * { width: 100%; height: 100%; margin: 0; }
+.t-out-fade     { animation: t-fade-out 0.45s ease both; }
+.t-in-fade      { animation: t-fade-in 0.5s ease both; }
+/* city → building: push through the doorway */
+.t-out-enter    { animation: t-zoom-through 0.6s cubic-bezier(0.55, 0, 0.75, 0.4) both; }
+.t-in-enter     { animation: t-settle-in 0.55s 0.18s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+/* building → city: step back out onto the quay */
+.t-out-leave    { animation: t-shrink-out 0.4s ease-in both; }
+.t-in-leave     { animation: t-pull-back 0.65s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+/* port → chart: the chart unrolls from the middle */
+.t-out-chart    { animation: t-fade-out 0.4s ease both; }
+.t-in-chart     { animation: t-unroll 0.7s cubic-bezier(0.25, 0.8, 0.3, 1) both; }
+/* chart → port: dive down onto the port */
+.t-out-landfall { animation: t-dive 0.7s cubic-bezier(0.5, 0, 0.75, 0.3) both; }
+.t-in-landfall  { animation: t-settle-in 0.6s 0.2s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+/* into battle */
+.t-out-battle   { animation: t-fade-out 0.35s ease-in both; }
+.t-in-battle    { animation: t-battle-in 0.6s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+@keyframes t-fade-out { to { opacity: 0; } }
+@keyframes t-fade-in { from { opacity: 0; } }
+@keyframes t-zoom-through { to { opacity: 0; transform: scale(2.4); } }
+@keyframes t-settle-in { from { opacity: 0; transform: scale(0.96); } }
+@keyframes t-shrink-out { to { opacity: 0; transform: scale(0.93); } }
+@keyframes t-pull-back { from { opacity: 0; transform: scale(1.9); } }
+@keyframes t-unroll { from { clip-path: inset(0 50% 0 50%); opacity: 0.4; } 60% { opacity: 1; } to { clip-path: inset(0 0 0 0); } }
+@keyframes t-dive { to { opacity: 0; transform: scale(3.2); } }
+@keyframes t-battle-in { from { opacity: 0; transform: scale(1.12); filter: brightness(1.8); } }
 .panel { background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.125rem 1.375rem; }
 h1, h2, h3 { font-weight: normal; margin: 0 0 0.625rem; font-family: var(--font-head); }
 h1 { font-family: var(--font-display); }
@@ -145,6 +177,7 @@ input, select { border: 1px solid rgba(19,50,74,0.3); border-radius: 0.4375rem; 
   .bld, .bld::before { transition: none; }
   .coin-drop, .loot, .plunder-hero h1, .plunder-hero p { animation: none !important; }
   .coin-drop { display: none; }
+  [class*="t-in-"], [class*="t-out-"] { animation: none !important; }
 }
 .newgame { position: relative; width: min(28.75rem, calc(100vw - 2rem)); display: flex; flex-direction: column; gap: 0.75rem; }
 .newgame label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.875rem; color: var(--muted); }
@@ -160,6 +193,7 @@ input, select { border: 1px solid rgba(19,50,74,0.3); border-radius: 0.4375rem; 
   background: #7cc1c9 center / 100% 100% no-repeat; border-radius: var(--radius); box-shadow: var(--shadow);
   overflow: hidden; border: 3px solid #d9c38f;
   isolation: isolate; /* keep building/sign z-indexes inside the scene, under popups */
+  transition: opacity 0.35s ease;
 }
 /* Harbor water glints: soft horizontal sparkles in two layers drifting opposite ways,
    each fading in and out, feathered at every edge so there are no hard bands.
@@ -316,7 +350,7 @@ table.market .trade button.sell { background: var(--coral); }
 /* ---------- Map ---------- */
 .screen-map { display: flex; flex-direction: column; align-items: center; gap: 0.625rem; padding: 0.875rem; }
 .map-wrap { position: relative; width: min(100%, calc((100vh - 8.75rem) * 1.975)); }
-#map { width: 100%; height: auto; display: block; border-radius: var(--radius); box-shadow: var(--shadow); border: 3px solid #d9c38f; }
+#map { width: 100%; height: auto; display: block; border-radius: 0.25rem; box-shadow: 0 0.6rem 1.6rem rgba(0,0,0,0.45), 0 0 0 0.35rem #4a3220, 0 0 0 0.5rem #8a6a3a; background: #eadcb5; }
 .map-tip { position: absolute; z-index: 5; pointer-events: none; background: var(--panel); border-radius: 0.5rem; padding: 0.625rem 0.75rem; width: 14.375rem; font-size: 0.8125rem; box-shadow: var(--shadow); }
 .tip-prices { margin-top: 0.375rem; }
 .tip-prices div { display: flex; justify-content: space-between; }

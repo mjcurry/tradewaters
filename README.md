@@ -60,7 +60,9 @@ It keeps the core of the classics: **buy low, sell high, and survive the pirates
 - 🎭 **95 unique keepers,** one in every building of every port, each with their own portrait, personality and lines. Meet a Maya cotton trader in Mérida, a Danish innkeeper in St. Thomas and a retired pirate lending money in Port Royal. They react to your debts, your cargo and the state of your hull.
 - 📈 **A living economy.** Every port makes some goods cheaply and pays dearly for others. Prices drift daily, shortages and gluts come and go, and your trading leaves a lasting mark, so the same route can't be milked forever.
 - 🧾 **Contracts and contraband.** Harbor Offices post freight and courier contracts with deadlines and bonds; taverns offer smuggling jobs. Each nation bans certain goods, and its navy patrols the approaches, so you can submit, bribe or run.
-- 🗺️ **Real sea lanes.** Routes are found with A* pathfinding around coastlines traced from real geography.
+- 🗺️ **A living sea chart.** An old parchment chart with water-lined coasts, rhumb lines, a swaying compass needle, a sea serpent and other ships working the lanes. Routes are found with A* pathfinding around coastlines traced from real geography.
+- 🎬 **Smooth transitions.** Step through a building's door, unroll the chart, and dive down onto a port as you make landfall.
+- 🔊 **Recorded sound.** Cannon fire, splintering hulls, creaking doors, anchor chains, harbor and open-sea ambience, generated with ElevenLabs.
 - ⚔️ **Real-time naval combat** with Chain Shot, Fire Pots and Powder Kegs. Or flee, if you're outgunned.
 - 🏰 **Hostile ports.** Now and then pirates seize a port and close its harbor. Storm its fortress and gun batteries to free it, for gold and gems.
 - 🚢 **Seven ships,** from sloop to man-o-war. Every cannon costs cargo space, so choose between firepower and profit.
@@ -102,11 +104,12 @@ number in `index.html` so returning players get the new files.
 | `js/characters.js` | Shared role dialogue (reactions, situation-aware remarks) and the line picker |
 | `js/contracts.js` | Nations, contraband rules and contract generation |
 | `js/city.js` | Per-port architecture style, sign text and quay height for each city view |
-| `js/map.js` | Coastline rasterization, A* routing, map rendering |
+| `js/map.js` | Coastline rasterization, A* routing, parchment chart rendering and its live decorations |
 | `js/combat.js` | Real-time battle loop and ship drawing |
-| `js/audio.js` | Synthesized sound effects and the music player |
+| `js/audio.js` | Recorded sound effects (with synthesized stand-ins), ambience loops and the music player |
 | `js/titlefx.js` | Title-screen gulls and water glints |
-| `assets/img/` | Title, interiors, battle backdrop, ports, buildings, portraits and help screenshots |
+| `assets/img/` | Title, interiors, battle and siege backdrops, ports, buildings, ships, forts, chart art, portraits and help screenshots |
+| `assets/sfx/` | Sound effects and ambience loops (generated with ElevenLabs) |
 | `assets/video/title.mp4` | Looping animated title backdrop |
 | `assets/music/` | Soundtrack (M4A with MP3 fallbacks) and the prompts used to make it |
 | `docs/readme/` | README banner |
