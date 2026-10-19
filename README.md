@@ -57,7 +57,7 @@ It keeps the core of the classics: **buy low, sell high, and survive the pirates
 ## Features
 
 - 🏝️ **20 real Caribbean ports,** each with a hand-painted city view and its own architecture, from Spanish Havana to Danish St. Thomas.
-- 🎭 **Six building keepers** with their own personalities: a sharp-tongued merchant, a one-eyed tavern gossip, a blunt Norwegian shipwright, a fussy banker, a menacing moneylender and a wise harbor master. They react to your debts, your cargo and the state of your hull.
+- 🎭 **95 unique keepers,** one in every building of every port, each with their own portrait, personality and lines. Meet a Maya cotton trader in Mérida, a Danish innkeeper in St. Thomas and a retired pirate lending money in Port Royal. They react to your debts, your cargo and the state of your hull.
 - 📈 **A living economy.** Every port makes some goods cheaply and pays dearly for others. Prices drift daily, shortages and gluts come and go, and your own big trades move the market.
 - 🗺️ **Real sea lanes.** Routes are found with A* pathfinding around coastlines traced from real geography.
 - ⚔️ **Real-time naval combat** with Chain Shot, Fire Pots and Powder Kegs. Or flee, if you're outgunned.
@@ -95,7 +95,8 @@ number in `index.html` so returning players get the new files.
 | `js/game.js` | Game state, screens (city view, buildings, map, combat), voyages, actions |
 | `js/data.js` | Goods, ports, ships, enemies, ranks, coastline polygons |
 | `js/economy.js` | Market simulation, trade pricing, tavern rumors |
-| `js/characters.js` | The six building keepers and their dialogue |
+| `js/cast.js` | The keepers of every building in every port, with their own lines |
+| `js/characters.js` | Shared role dialogue (reactions, situation-aware remarks) and the line picker |
 | `js/city.js` | Per-port architecture style, sign text and quay height for each city view |
 | `js/map.js` | Coastline rasterization, A* routing, map rendering |
 | `js/combat.js` | Real-time battle loop and ship drawing |

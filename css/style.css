@@ -141,6 +141,7 @@ input, select { border: 1px solid rgba(19,50,74,0.3); border-radius: 0.4375rem; 
 @media (prefers-reduced-motion: reduce) {
   .title-box h1 span, .title-box .tag, .title-box .col > *, .title-box button.big, .press-hint { animation: none !important; }
   .title-video { display: none; }
+  .city-scene::before, .city-scene::after { animation: none; }
 }
 .newgame { position: relative; width: min(28.75rem, calc(100vw - 2rem)); display: flex; flex-direction: column; gap: 0.75rem; }
 .newgame label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.875rem; color: var(--muted); }
@@ -157,12 +158,32 @@ input, select { border: 1px solid rgba(19,50,74,0.3); border-radius: 0.4375rem; 
   overflow: hidden; border: 3px solid #d9c38f;
   isolation: isolate; /* keep building/sign z-indexes inside the scene, under popups */
 }
-.city-scene::after { /* slow shimmer across the harbor water */
-  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 18%; pointer-events: none;
-  background: repeating-linear-gradient(100deg, transparent 0 3%, rgba(255,255,255,0.10) 3.5% 4%, transparent 4.5% 9%);
-  background-size: 200% 100%; animation: shimmer 14s linear infinite; mix-blend-mode: screen;
+/* Harbor water glints: soft horizontal sparkles in two layers drifting opposite ways,
+   each fading in and out, feathered at every edge so there are no hard bands.
+   --water-top is set per port from where its quay ends. */
+.city-scene::before, .city-scene::after {
+  content: ''; position: absolute; left: 0; right: 0; top: var(--water-top, 82%); bottom: 0; pointer-events: none; z-index: 1;
+  background-repeat: repeat-x; background-size: 50% 100%;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent);
+          mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent);
 }
-@keyframes shimmer { to { background-position: -200% 0; } }
+.city-scene::before {
+  background-image:
+    radial-gradient(3.5rem 0.3rem at 18% 30%, rgba(255, 252, 230, 0.55), transparent 70%),
+    radial-gradient(2.5rem 0.25rem at 62% 62%, rgba(255, 252, 230, 0.45), transparent 70%),
+    radial-gradient(4.5rem 0.35rem at 85% 22%, rgba(255, 252, 230, 0.40), transparent 70%);
+  animation: water-drift 70s linear infinite, water-glint 5.5s ease-in-out infinite alternate;
+}
+.city-scene::after {
+  background-image:
+    radial-gradient(3rem 0.28rem at 35% 75%, rgba(255, 252, 230, 0.45), transparent 70%),
+    radial-gradient(5rem 0.32rem at 72% 40%, rgba(255, 252, 230, 0.35), transparent 70%),
+    radial-gradient(2.2rem 0.22rem at 8% 55%, rgba(255, 252, 230, 0.50), transparent 70%);
+  animation: water-drift-back 95s linear infinite, water-glint 7.5s ease-in-out -3s infinite alternate;
+}
+@keyframes water-drift { to { background-position: 100% 0; } }
+@keyframes water-drift-back { from { background-position: 100% 0; } to { background-position: 0 0; } }
+@keyframes water-glint { from { opacity: 0.25; } to { opacity: 0.9; } }
 .city-sign {
   position: absolute; top: 4%; left: 50%; transform: translateX(-50%); z-index: 200; text-align: center;
   background: linear-gradient(#5b3a22, #46301e); color: var(--cream); padding: 0.35rem 1.6rem 0.5rem; border-radius: 0.4rem;
@@ -204,7 +225,9 @@ input, select { border: 1px solid rgba(19,50,74,0.3); border-radius: 0.4375rem; 
   animation: keeper-in 0.5s cubic-bezier(0.2, 0.8, 0.25, 1.2) both;
 }
 .portrait:hover:not(:disabled) { background: var(--sand); transform: scale(1.03); }
-.portrait img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.portrait { position: relative; }
+.portrait img { position: relative; width: 100%; height: 100%; object-fit: cover; display: block; }
+.monogram { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--font-display); font-size: 4rem; color: var(--navy); }
 @keyframes keeper-in { from { transform: translateY(2rem) scale(0.9); opacity: 0; } }
 .keeper-name { margin-top: 2.2rem; text-align: center; color: var(--gold); font-family: var(--font-display); font-size: 1.9rem; line-height: 1; }
 .keeper-name small { display: block; font-family: var(--font-old); font-style: italic; color: #e9dcc0; font-size: 1rem; margin-top: 0.3rem; }

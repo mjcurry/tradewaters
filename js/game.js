@@ -34,7 +34,7 @@
   }
   const monthIndex = day => { let d = day % 365, m = 0; while (d >= TW.MONTH_DAYS[m]) { d -= TW.MONTH_DAYS[m]; m++; } return Math.floor(day / 365) * 12 + m; };
 
-  function log(text) { S.log.unshift({ day: S.day, text }); S.log.length = Math.min(S.log.length, 60); }
+  function log(text) { S.log.unshift({ day: S.day, text }); S.log.length = Math.min(S.log.length, 100); }
   function toast(html, kind = '') {
     const t = document.createElement('div'); t.className = 'toast ' + kind; t.innerHTML = html;
     $('#toasts').appendChild(t);
@@ -262,7 +262,7 @@
     const d = shipDef();
     el.innerHTML = `
       <div class="city">
-        <div class="city-scene" style="background-image:url(assets/img/ports/${p.id}.jpg)">
+        <div class="city-scene" style="background-image:url(assets/img/ports/${p.id}.jpg); --water-top:${(((city.quay || 0.78) + 0.07) * 100).toFixed(1)}%">
           <div class="city-sign"><span>${p.name}</span><small>${city.blurb || ''}</small></div>
           ${cityLayout(p).map(b => `
             <button class="bld bld-${b.id}" data-act="enter" data-place="${b.id}" aria-label="${BUILDINGS[b.id].label}"
@@ -286,7 +286,7 @@
     const list = ids => ids.map(id => TW.GOOD[id].name.toLowerCase()).join(' and ');
     const D = dangerLevel();
     return {
-      name: S.name, port: p.name, home: TW.PORT[S.home].name, ship: d.name,
+      portId: p.id, name: S.name, port: p.name, home: TW.PORT[S.home].name, ship: d.name,
       cash: S.cash, bank: S.bank, debt: S.debt, worth: worth(), guns: S.ship.guns,
       cargo: cargoQty(), hullPct: S.ship.hull / d.hull, loadPct: usedSpace() / d.cargo,
       threat: D < 6 ? 0 : D < 14 ? 1 : D < 26 ? 2 : 3,
@@ -318,14 +318,15 @@
   }
 
   function renderBuilding(el, id) {
-    const ch = TW.CHARACTERS[id];
+    const ch = TW.keeper(S.port, id);
     if (!view.speech || view.speech.who !== id) speak('greet');
     el.innerHTML = `
       <div class="bld-view">
         <aside class="keeper">
           <div class="keeper-art" style="${bgStyle(INTERIOR[id])}">
             <button class="portrait" data-act="talk" title="Talk to ${ch.name}">
-              <img src="assets/img/chars/${id}.jpg" alt="${ch.name}"></button>
+              <span class="monogram">${ch.name.replace(/[“”"].*?[“”"]\s*/g, '').split(' ').filter(w => /^[A-ZÁÉÍÓÚÑ]/.test(w)).slice(-2).map(w => w[0]).join('')}</span>
+              <img src="assets/img/chars/${S.port}-${id}.jpg" alt="${ch.name}" onerror="this.remove()"></button>
           </div>
           <div class="keeper-name">${ch.name}<small>${ch.title}</small></div>
           <div class="speech"><p class="speech-text"></p></div>
@@ -443,6 +444,7 @@
       const c = S.ship.cargo[id] || (S.ship.cargo[id] = { qty: 0, cost: 0 });
       c.cost = (c.cost * c.qty + cost) / (c.qty + q); c.qty += q;
       toast(`Bought ${q} ${g.name} for ${gold(cost)}`);
+      log(`Bought ${q} ${g.name.toLowerCase()} in ${port().name} for ${fmt(cost)} gold.`);
       speak(q >= 50 ? 'bigBuy' : 'buy');
     } else {
       const c = S.ship.cargo[id]; if (!c) return;
@@ -454,6 +456,7 @@
       S.stats.profit += profit;
       c.qty -= q; if (!c.qty) delete S.ship.cargo[id];
       toast(`Sold ${q} ${g.name} for ${gold(got)} <span class="${profit >= 0 ? 'up' : 'down'}">(${profit >= 0 ? '+' : ''}${fmt(profit)})</span>`, profit >= 0 ? 'good' : '');
+      log(`Sold ${q} ${g.name.toLowerCase()} in ${port().name} for ${fmt(got)} gold, ${profit >= 0 ? 'a profit' : 'a loss'} of ${fmt(Math.abs(profit))}.`);
       if (profit > 0) TW.sfx('coins');
       speak(profit >= 0 ? 'sellProfit' : 'sellLoss');
     }
@@ -464,8 +467,9 @@
   function renderTavern(el) {
     const chartCost = 2500 + 2000 * Math.max(0, S.known.length - 9);
     const unknown = TW.PORTS.length - S.known.length;
-    el.innerHTML = `<h2>The Salted Lantern</h2>
-      <p class="hint">Sailors talk when the drinks are free. Buy a round and Bilge will share what he's heard.</p>
+    const tavernName = (TW.keeper(S.port, 'tavern').title.match(/^Keeper of (?:the )?(.+)$/) || [])[1];
+    el.innerHTML = `<h2>${tavernName ? (/^[A-Z’']/.test(tavernName) && !/^(La|El|’t) /.test(tavernName) ? 'The ' : '') + tavernName : 'The Tavern'}</h2>
+      <p class="hint">Sailors talk when the drinks are free. Buy a round and hear what's going around the harbor.</p>
       <div class="row wrap">
         <button data-act="rumor">🍺 Buy a round (${fmt(50)} g)</button>
         <button data-act="chart" ${!unknown ? 'disabled' : ''}>🗺 Buy a sea chart (${fmt(chartCost)} g)</button>
@@ -937,7 +941,7 @@
       const d = shipDef(), rate = 40 + 15 * TW.SHIPS.indexOf(d);
       const n = Math.min(d.hull - S.ship.hull, Math.floor(S.cash / rate));
       if (n <= 0) { speak('cantAfford'); return render(); }
-      S.cash -= n * rate; S.ship.hull += n; toast(`Repaired ${n} hull for ${fmt(n * rate)} gold`); speak('repair'); save(); render();
+      S.cash -= n * rate; S.ship.hull += n; toast(`Repaired ${n} hull for ${fmt(n * rate)} gold`); log(`Repaired the hull in ${port().name} for ${fmt(n * rate)} gold.`); speak('repair'); save(); render();
     },
     'fixguns': () => {
       const n = Math.min(S.ship.broken, Math.floor(S.cash / 400));
@@ -948,17 +952,17 @@
       if (S.cash < TW.CANNON_PRICE) { speak('cantAfford'); return render(); }
       if (freeSpace() < TW.GUN_SPACE) return toast('No room in the hold for another cannon.', 'bad');
       if (S.ship.guns >= shipDef().guns) return;
-      S.cash -= TW.CANNON_PRICE; S.ship.guns++; speak('buyGun'); save(); render();
+      S.cash -= TW.CANNON_PRICE; S.ship.guns++; log(`Mounted a new cannon (${S.ship.guns} aboard).`); speak('buyGun'); save(); render();
     },
     'gun-sell': () => {
       if (!S.ship.guns) return;
       S.ship.guns--; if (S.ship.broken > S.ship.guns) S.ship.broken = S.ship.guns;
-      S.cash += TW.CANNON_PRICE / 2; speak('sellGun'); save(); render();
+      S.cash += TW.CANNON_PRICE / 2; log(`Sold a cannon (${S.ship.guns} left).`); speak('sellGun'); save(); render();
     },
     'ammo': (b) => {
       const a = TW.AMMO_BY[b.dataset.ammo];
       if (S.cash < a.price) { speak('cantAfford'); return render(); }
-      S.cash -= a.price; S.ammo[a.id]++; speak('ammo'); save(); render();
+      S.cash -= a.price; S.ammo[a.id]++; log(`Bought a ${a.name.toLowerCase()} for ${fmt(a.price)} gold.`); speak('ammo'); save(); render();
     },
     'buyship': (b) => {
       const id = b.dataset.ship, price = +b.dataset.price, d = shipDef(), nd = TW.SHIP[id];
@@ -976,17 +980,17 @@
           log(`Bought a ${nd.name}. A fine vessel!`); TW.sfx('bell'); speak('buyShip'); save(); render();
         }, 'big'], ['Cancel', null, 'ghost']]);
     },
-    'deposit': () => { const a = Math.min(amount(), S.cash); S.cash -= a; S.bank += a; speak(a ? 'deposit' : 'nothing'); save(); render(); },
-    'withdraw': () => { const a = Math.min(amount(), S.bank); S.bank -= a; S.cash += a; speak(a ? 'withdraw' : 'nothing'); save(); render(); },
-    'deposit-all': () => { const a = S.cash; S.bank += S.cash; S.cash = 0; speak(a ? 'deposit' : 'nothing'); save(); render(); },
-    'withdraw-all': () => { const a = S.bank; S.cash += S.bank; S.bank = 0; speak(a ? 'withdraw' : 'nothing'); save(); render(); },
+    'deposit': () => { const a = Math.min(amount(), S.cash); S.cash -= a; S.bank += a; if (a) log(`Deposited ${fmt(a)} gold in the bank.`); speak(a ? 'deposit' : 'nothing'); save(); render(); },
+    'withdraw': () => { const a = Math.min(amount(), S.bank); S.bank -= a; S.cash += a; if (a) log(`Withdrew ${fmt(a)} gold from the bank.`); speak(a ? 'withdraw' : 'nothing'); save(); render(); },
+    'deposit-all': () => { const a = S.cash; S.bank += S.cash; S.cash = 0; if (a) log(`Deposited ${fmt(a)} gold in the bank.`); speak(a ? 'deposit' : 'nothing'); save(); render(); },
+    'withdraw-all': () => { const a = S.bank; S.cash += S.bank; S.bank = 0; if (a) log(`Withdrew ${fmt(a)} gold from the bank.`); speak(a ? 'withdraw' : 'nothing'); save(); render(); },
     'borrow': () => {
       const max = Math.max(0, Math.max(5000, 2 * worth()) - S.debt);
       const a = Math.min(amount(), max);
       if (!a) { if (max) return toast('Enter an amount.', 'bad'); speak('refused'); return render(); }
       S.cash += a; S.debt += a; log(`Borrowed ${fmt(a)} gold from the moneylender.`); speak('borrow'); save(); render();
     },
-    'repay': () => { const a = Math.min(amount(), S.cash, S.debt); S.cash -= a; S.debt -= a; if (a) speak(S.debt ? 'repay' : 'repayAll'); save(); render(); },
+    'repay': () => { const a = Math.min(amount(), S.cash, S.debt); S.cash -= a; S.debt -= a; if (a) { log(`Repaid ${fmt(a)} gold to the moneylender.`); speak(S.debt ? 'repay' : 'repayAll'); } save(); render(); },
     'repay-all': () => { const a = Math.min(S.cash, S.debt); S.cash -= a; S.debt -= a; if (!S.debt) { log('Paid off the moneylender in full.'); speak('repayAll'); } save(); render(); },
     'special': (b) => TW.Combat.special(b.dataset.ammo),
     'flee': () => TW.Combat.flee(),
