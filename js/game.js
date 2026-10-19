@@ -836,9 +836,9 @@
   }
 
   // ---------- modal ----------
-  function modal(html, buttons) {
+  function modal(html, buttons, cls = '') {
     const m = $('#modal');
-    m.innerHTML = `<div class="modal-box panel">${html}<div class="row">${buttons.map((b, i) => `<button class="${b[2] || ''}" data-i="${i}">${b[0]}</button>`).join('')}</div></div>`;
+    m.innerHTML = `<div class="modal-box panel ${cls}">${html}<div class="row">${buttons.map((b, i) => `<button class="${b[2] || ''}" data-i="${i}">${b[0]}</button>`).join('')}</div></div>`;
     m.hidden = false;
     m.onclick = ev => {
       const i = ev.target.closest('button')?.dataset.i;
@@ -861,11 +861,24 @@
       newGame($('#ng-name').value.trim(), $('#ng-mode').value, $('#ng-home').value);
       view.place = 'city'; view.speech = null; go('port');
     },
-    'help': () => modal(`<h2>How to Play</h2>
-      <p><b>Trade.</b> Each port makes some goods cheaply and pays dearly for others. Buy where prices are <span class="cheap">green</span> and sell where they are <span class="dear">red</span>. Big trades move the price, so spread them across ports.</p>
-      <p><b>Sail.</b> Click Set Sail and pick a port on the map. Hover a port to see the prices you saw there last.</p>
-      <p><b>Survive.</b> Pirates and storms prowl the sea lanes. In battle, click an enemy to target it. Your cannons fire on their own, and special ammo can turn the tide. Cannons cost hold space, so balance firepower against cargo.</p>
-      <p><b>Grow.</b> Rising net worth (cash + bank + cargo − debt) unlocks richer goods, new charts and bigger ships. The moneylender charges 10% a month, so pay it back fast.</p>`, [['Got it', null, 'big']]),
+    'help': () => {
+      // Each section pairs a gameplay screenshot with a short tip; click a picture to enlarge it.
+      const rows = [
+        ['city', 'Explore the port', 'Every port has its own harbor. Click a building on the quay to step inside and meet its keeper. They have opinions about your ship, your debts and your cargo.'],
+        ['market', 'Trade', 'Each port makes some goods cheaply and pays dearly for others. Buy where prices are <span class="cheap">green</span> and sell where they are <span class="dear">red</span>. Big trades move the price, so spread them across ports.'],
+        ['map', 'Sail', 'Visit the Harbor Office or press Set Sail, then pick a port on the chart. Hover a port to see the prices you saw there last.'],
+        ['combat', 'Survive', 'Pirates and storms prowl the sea lanes. In battle, click an enemy to target it. Your cannons fire on their own, and special ammo can turn the tide. Outgunned? Flee.'],
+        ['shipyard', 'Grow', 'Rising net worth (cash + bank + cargo \u2212 debt) unlocks richer goods, new charts and bigger ships. Cannons cost hold space, so balance firepower against cargo. The moneylender charges 10% a month!'],
+      ];
+      modal(`<h2>How to Play</h2>${rows.map(([img, title, text]) => `
+        <div class="help-row">
+          <button class="help-shot" title="Click to enlarge"><img src="assets/img/help/${img}.jpg" alt="${title}" loading="lazy"></button>
+          <div><h3>${title}</h3><p>${text}</p></div>
+        </div>`).join('')}`, [['Got it', null, 'big']], 'wide');
+      $('#modal').querySelectorAll('.help-shot').forEach(b => {
+        b.onclick = () => b.closest('.help-row').classList.toggle('zoomed');
+      });
+    },
     'menu': () => modal(`<h2>Menu</h2><p>Your game saves automatically each time you reach port.</p>`,
       [['Resume', null, 'big'], ['Retire and see your score', () => go('end'), 'ghost'], ['Quit to title', () => { save(); go('title'); }, 'ghost']]),
     'toggle-sfx': () => { TW.toggleAudio('sfx'); hud(); },

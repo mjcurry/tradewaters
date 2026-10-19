@@ -281,6 +281,19 @@ table.market .trade button.sell { background: var(--coral); }
 .modal-box p { line-height: 1.5; }
 .modal-box .row { flex-wrap: wrap; justify-content: flex-end; }
 .fleet { margin: 0.375rem 0; padding-left: 1.25rem; }
+.modal-box.wide { width: min(54rem, 100%); max-height: 90vh; overflow-y: auto; }
+.help-row { display: grid; grid-template-columns: 16rem 1fr; gap: 1.1rem; align-items: center; padding: 0.75rem 0; border-top: 1px solid rgba(19,50,74,0.12); }
+.help-row > * { min-width: 0; }  /* let grid columns shrink below the screenshots' natural width */
+.help-row h3 { margin: 0 0 0.3rem; border: 0; padding: 0; }
+.help-row p { margin: 0; line-height: 1.45; }
+.help-shot {
+  width: 100%; padding: 0; border-radius: 0.5rem; overflow: hidden; border: 2px solid #d9c38f; background: var(--navy);
+  box-shadow: 0 0.3rem 0.8rem rgba(8,24,36,0.25); cursor: zoom-in; transition: transform 0.15s;
+}
+.help-shot:hover:not(:disabled) { background: var(--navy); transform: scale(1.02); }
+.help-shot img { width: 100%; aspect-ratio: 16 / 9; display: block; object-fit: cover; }
+.help-row.zoomed { grid-template-columns: 1fr; }
+.help-row.zoomed .help-shot { cursor: zoom-out; transform: none; }
 @keyframes pop { from { transform: scale(0.94); opacity: 0; } }
 #toasts { position: fixed; bottom: 1.125rem; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 0.375rem; z-index: 1100; align-items: center; pointer-events: none; }
 .toast { background: var(--navy); color: var(--cream); padding: 0.5625rem 1rem; border-radius: 0.5rem; box-shadow: var(--shadow); font-size: 0.9375rem; transition: opacity 0.5s, transform 0.5s; }
@@ -309,6 +322,7 @@ table.market .trade button.sell { background: var(--coral); }
   .screen-port { padding: 0.75rem 1rem; }
   .city-bar .mini { width: 100%; justify-content: center; }
   .press-hint { font-size: 1.3rem; }
+  .help-row { grid-template-columns: 1fr; }
   .city-sign { top: 2%; padding: 0.15rem 0.7rem 0.25rem; }
   .city-sign span { font-size: 1.15rem; }
   .city-sign small { font-size: 0.7rem; }
