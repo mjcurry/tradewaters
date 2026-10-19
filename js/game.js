@@ -624,7 +624,7 @@
       const e = m[g.id], held = S.ship.cargo[g.id]?.qty || 0;
       // Goods above your standing can't be bought yet, but anything you've captured can be sold.
       const locked = !TW.goodUnlocked(S, g);
-      if (locked && !held) return `<tr class="locked"><td>${g.icon} ${g.name}</td><td colspan="5">Unlocks at ${gold(g.unlock)} net worth</td></tr>`;
+      if (locked && !held) return `<tr class="locked"><td><span class="emoji">${g.icon}</span> ${g.name}</td><td colspan="5">Unlocks at ${gold(g.unlock)} net worth</td></tr>`;
       const noBuy = locked || !stockOf(e) || TW.banned(S.port, g.id);
       const buy = TW.unitBuy(e), sell = TW.unitSell(e), stock = stockOf(e);
       const avg = S.ship.cargo[g.id]?.cost;
