@@ -12,7 +12,7 @@
     if (!ac) {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return null;
-      ac = new AC(); master = ac.createGain(); master.gain.value = 0.5; master.connect(ac.destination);
+      ac = new AC(); master = ac.createGain(); master.gain.value = 0.62; master.connect(ac.destination);   // samples peak at -3 dBFS
     }
     if (ac.state === 'suspended') ac.resume();
     return ac;
@@ -49,10 +49,11 @@
   const VARY = new Set(['cannon', 'cannonFar', 'hit', 'hitFar', 'splash', 'boom', 'coins', 'click', 'crate']);  // pitch-jitter these
   const MAX_VOICES = { cannon: 5, cannonFar: 4, hit: 3, hitFar: 3, splash: 3 };
   const buffers = {}, voices = {};
+  const SFX_REV = 2;   // bump when the files are replaced: they're cached for a week
   TW.loadSfx = function () {
     const a = ctx(); if (!a || !window.fetch) return Promise.resolve();
     const files = new Set([...Object.values(SAMPLES).flat(), 'amb-port', 'amb-sea']);
-    return Promise.all([...files].map(f => fetch(`assets/sfx/${f}.mp3`)
+    return Promise.all([...files].map(f => fetch(`assets/sfx/${f}.mp3?r=${SFX_REV}`)
       .then(r => (r.ok ? r.arrayBuffer() : Promise.reject()))
       .then(data => new Promise((res, rej) => a.decodeAudioData(data, res, rej)))
       .then(buf => { buffers[f] = buf; }, () => {})))
