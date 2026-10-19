@@ -8,7 +8,7 @@ TW.GOODS = [
   { id: 'timber',  name: 'Timber',  min: 40,   max: 220,   unlock: 0,       elastic: 0.003, depth: 700, icon: '🪵' },
   { id: 'cocoa',   name: 'Cocoa',   min: 120,  max: 520,   unlock: 0,       elastic: 0.0028, depth: 550, icon: '🫘' },
   { id: 'sugar',   name: 'Sugar',   min: 250,  max: 900,   unlock: 0,       elastic: 0.0026, depth: 500, icon: '🧂' },
-  { id: 'muskets', name: 'Muskets', min: 800,  max: 2600,  unlock: 40000,   elastic: 0.0022, depth: 350, icon: '🔫' },
+  { id: 'muskets', name: 'Arms',    min: 800,  max: 2600,  unlock: 40000,   elastic: 0.0022, depth: 350, icon: '⚔️' },   // id kept for old saves
   { id: 'cloth',   name: 'Cloth',   min: 1500, max: 5000,  unlock: 120000,  elastic: 0.002, depth: 280, icon: '🧵' },
   { id: 'tobacco', name: 'Tobacco', min: 2500, max: 7000,  unlock: 350000,  elastic: 0.0018, depth: 220, icon: '🍂' },
   { id: 'rum',     name: 'Rum',     min: 4000, max: 9500,  unlock: 900000,  elastic: 0.0016, depth: 180, icon: '🍾' },

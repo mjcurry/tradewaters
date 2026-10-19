@@ -182,7 +182,7 @@ TW.CAST = {
   curacao: {
     market: { name: "Abraham de Castro", title: "Merchant of the Handelskade",
       look: "a genial Sephardic Jewish merchant in his fifties with a neat grey beard, a black tricorn hat, a plain dark coat with a white collar, spectacles, holding bolts of colorful cloth",
-      greet: ["Welcome, Captain! On Curaçao everyone trades with everyone. Even with you.", "Bon dia! Cloth from Holland, muskets from everywhere. Let’s talk."],
+      greet: ["Welcome, Captain! On Curaçao everyone trades with everyone. Even with you.", "Bon dia! Cloth from Holland, arms from everywhere. Let’s talk."],
       idle: ["My family came from Lisbon, then Amsterdam, then here. We follow good trade like birds follow the wind.", "{port} pays well for {wants}. And we always have {makes} for an honest captain.", "A free port, Captain. Free to buy, free to sell, free to complain about prices."] },
     tavern: { name: "Tante Mina Martis", title: "Keeper of ’t Gele Huis",
       look: "a warm, witty Afro-Curaçaoan woman in her forties with a colorful madras headscarf, a bright yellow dress, a towel over her shoulder, laughing heartily, holding a clay jug",
@@ -423,8 +423,8 @@ TW.CAST = {
   freeport: {
     market: { name: "Lucky Lou Pinder", title: "Smuggler-Merchant",
       look: "a grinning, shifty Bahamian smuggler-merchant in his thirties with a gold tooth, a long black coat over a bare chest, a battered tricorn hat with a feather, holding a crate of muskets",
-      greet: ["Welcome to Freeport, mate. Everything’s for sale and nothing’s on the books.", "Psst. Captain. Muskets? Fish? Questions? Only the first two are free."],
-      idle: ["Customs officers come here sometimes. They leave richer and quieter.", "{port} pays anything for {wants}. And I’ve got muskets for days.", "They call me Lucky because I’m still alive. It’s a risky trade."] },
+      greet: ["Welcome to Freeport, mate. Everything’s for sale and nothing’s on the books.", "Psst. Captain. Arms? Fish? Questions? Only the first two are free."],
+      idle: ["Customs officers come here sometimes. They leave richer and quieter.", "{port} pays anything for {wants}. And I’ve got arms for days.", "They call me Lucky because I’m still alive. It’s a risky trade."] },
     tavern: { name: "Mama Dee Rolle", title: "Keeper of the Smugglers’ Rest",
       look: "a commanding, cheerful Black Bahamian woman tavern keeper in her fifties with a red headwrap, a flowered dress, many bead necklaces, laughing with her hands on her hips",
       greet: ["Welcome to the Smugglers’ Rest! What’s said here stays here. What’s drunk here stays in you.", "Sit down, Captain. Conch fritters and rum. Don’t ask what’s in the crates."],
