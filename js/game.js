@@ -1288,6 +1288,13 @@
       img.src = `assets/img/${n}.jpg`;
     })));
   }
+  // Decode the building cut-outs up front so the city view's first hovers don't stall.
+  function predecodeBuildings() {
+    for (const style of ['spanish', 'english']) for (const b of ['market', 'tavern', 'shipyard', 'bank', 'lender', 'harbor']) {
+      const img = new Image(); img.src = `assets/img/buildings/${style}-${b}.png`;
+      if (img.decode) img.decode().catch(() => {});
+    }
+  }
 
   TW.boot = async function () {
     // Canvas text (map labels, combat) only uses web fonts that have already loaded.
@@ -1298,6 +1305,7 @@
     ]);
     TW.initMap();
     await loadImages();
+    predecodeBuildings();
     go('title');
   };
   // Exposed for debugging and automated checks.

@@ -142,6 +142,7 @@ input, select { border: 1px solid rgba(19,50,74,0.3); border-radius: 0.4375rem; 
   .title-box h1 span, .title-box .tag, .title-box .col > *, .title-box button.big, .press-hint { animation: none !important; }
   .title-video { display: none; }
   .city-scene::before, .city-scene::after { animation: none; }
+  .bld, .bld::before { transition: none; }
   .coin-drop, .loot, .plunder-hero h1, .plunder-hero p { animation: none !important; }
   .coin-drop { display: none; }
 }
@@ -195,12 +196,21 @@ input, select { border: 1px solid rgba(19,50,74,0.3); border-radius: 0.4375rem; 
 .city-sign small { font-family: var(--font-old); font-style: italic; font-size: 1rem; color: #f2dcaf; }
 .bld {
   position: absolute; transform: translateX(-50%); background: none; padding: 0; border: 0; border-radius: 0;
-  display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: transform 0.18s ease, filter 0.18s ease;
-  filter: drop-shadow(0 0.4rem 0.4rem rgba(20, 30, 40, 0.25));
+  display: flex; flex-direction: column; align-items: center; cursor: pointer;
+  transition: transform 0.18s ease; will-change: transform;
 }
-.bld:hover:not(:disabled) { background: none; transform: translateX(-50%) translateY(-3%) scale(1.04); filter: drop-shadow(0 0 0.6rem rgba(255, 214, 120, 0.95)) brightness(1.06); }
+/* Hover glow: a soft light behind the building that only fades its opacity. Animating a
+   filter on these large transparent images forced a full re-raster every frame, which
+   stalled on first hover after loading and left the previous building stuck "lit". */
+.bld::before {
+  content: ''; position: absolute; inset: -6% -10% 4%; z-index: -1; pointer-events: none; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 214, 120, 0.85), rgba(255, 214, 120, 0.35) 55%, transparent);
+  opacity: 0; transition: opacity 0.18s ease;
+}
+.bld:hover:not(:disabled) { background: none; transform: translateX(-50%) translateY(-3%) scale(1.04); }
+.bld:hover::before { opacity: 1; }
 .bld:focus-visible { outline: 3px solid var(--gold); outline-offset: 4px; }
-.bld img { height: 100%; width: auto; display: block; pointer-events: none; user-select: none; }
+.bld img { height: 100%; width: auto; display: block; pointer-events: none; user-select: none; filter: drop-shadow(0 0.4rem 0.4rem rgba(20, 30, 40, 0.25)); }
 .bld-sign {
   position: absolute; bottom: -0.9rem; white-space: nowrap; font-family: var(--font-ui); font-weight: 700; font-size: 0.95rem;
   background: var(--cream); color: var(--navy); padding: 0.1rem 0.6rem; border-radius: 0.3rem; border: 2px solid #8a6a3e;
