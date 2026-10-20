@@ -769,7 +769,7 @@
       const avg = S.ship.cargo[g.id]?.cost;
       const pl = held && avg ? Math.round((sell - avg) / avg * 100) : null;
       return `<tr data-good="${g.id}">
-        <td>${g.icon} <b>${g.name}</b>${e.kind ? `<span class="tagx ${e.kind}" ${tip(eventTip(e.kind, g))}>${e.kind}</span>` : ''}${TW.banned(S.port, g.id) ? `<span class="tagx contraband" ${tip(contrabandTip(g))}>contraband</span>` : ''}${locked ? `<span class="tagx sellonly" ${tip(`<b>Sell only.</b> These are captured goods. Merchants here will buy them from you, but won't sell ${g.name.toLowerCase()} to you until your net worth reaches ${gold(g.unlock)}.`)}>sell only</span>` : ''}</td>
+        <td class="good"><span class="gname">${g.icon} <b>${g.name}</b></span>${e.kind ? `<span class="tagx ${e.kind}" ${tip(eventTip(e.kind, g))}>${e.kind}</span>` : ''}${TW.banned(S.port, g.id) ? `<span class="tagx contraband" ${tip(contrabandTip(g))}>contraband</span>` : ''}${locked ? `<span class="tagx sellonly" ${tip(`<b>Sell only.</b> These are captured goods. Merchants here will buy them from you, but won't sell ${g.name.toLowerCase()} to you until your net worth reaches ${gold(g.unlock)}.`)}>sell only</span>` : ''}</td>
         <td class="${priceClass(g, buy)}">${fmt(buy)}</td>
         <td class="${priceClass(g, sell)}">${fmt(sell)}</td>
         <td>${stock || '<i class="muted">none</i>'}</td>

@@ -320,6 +320,10 @@ input, select { border: 1px solid rgba(19,50,74,0.3); border-radius: 0.4375rem; 
 table.market { width: 100%; border-collapse: collapse; font-size: 1.1rem; }
 table.market th { text-align: left; font-weight: normal; font-family: var(--font-ui); color: var(--muted); font-size: 0.85rem; text-transform: lowercase; letter-spacing: 1px; padding: 0.25rem 0.375rem; }
 table.market td { padding: 0.7rem 0.35rem; border-top: 1px solid rgba(19,50,74,0.1); white-space: nowrap; }
+/* Tags may wrap under the good's name so a row with two of them still fits; each tag stays whole. */
+table.market td.good { white-space: normal; line-height: 1.6; }
+table.market td.good .gname, table.market td.good .tagx { white-space: nowrap; }
+table.market td.good .tagx { display: inline-block; line-height: 1.5; }
 table.market tr.locked td { color: var(--muted); font-style: italic; }
 /* Emoji inside italic text get a fake slant; keep them upright (and a little faded when locked). */
 .emoji { font-style: normal; display: inline-block; }
