@@ -131,6 +131,7 @@ post-battle plunder screen. `TW._debug.event('patrol', 'havana')` fires a sea ev
 - **Inspiration:** the *Tradewinds* series by Sandlot Games.
 - **Art:** generated with [Higgsfield](https://higgsfield.ai) and composed into the game by hand.
 - **Music:** generated with [Suno](https://suno.com).
+- **Sound effects:** generated with [ElevenLabs](https://elevenlabs.io), with a few synthesized in the browser (the departure bell and the fire pot).
 - **Fonts:** [Pirata One](https://fonts.google.com/specimen/Pirata+One), [IM Fell English](https://fonts.google.com/specimen/IM+Fell+English), [Alegreya](https://fonts.google.com/specimen/Alegreya) and [Caveat](https://fonts.google.com/specimen/Caveat), all from Google Fonts.
 - **Built with** [Claude Code](https://claude.com/claude-code).
 
