@@ -528,8 +528,13 @@
         const bw = 90, bx = e.x - bw / 2, byy = e.y - shipTop(e) - 14;
         ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(bx, byy, bw, 8);
         ctx.fillStyle = '#e8604c'; ctx.fillRect(bx, byy, bw * Math.max(0, e.hp / e.maxHp), 8);
-        ctx.font = '14px "IM Fell English SC", Georgia'; ctx.fillStyle = '#fff8e6'; ctx.textAlign = 'center';
-        ctx.fillText(e.name, e.x, byy - 4);
+        // A dark outline and soft shadow keep the name readable over bright skies and clouds.
+        ctx.save();
+        ctx.font = '14px "IM Fell English SC", Georgia'; ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+        ctx.shadowColor = 'rgba(0,0,0,0.75)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 1;
+        ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(10,25,35,0.85)'; ctx.strokeText(e.name, e.x, byy - 4);
+        ctx.shadowColor = 'transparent'; ctx.fillStyle = '#fff8e6'; ctx.fillText(e.name, e.x, byy - 4);
+        ctx.restore();
         if (i === S.target) {
           ctx.strokeStyle = '#f2b84b'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
           const top = shipTop(e); ctx.beginPath(); ctx.ellipse(e.x, e.y - top / 2 + 8, shipHalfW(e) + 12, top / 2 + 14, 0, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
