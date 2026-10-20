@@ -201,24 +201,27 @@
       toast(`⌛ Contract failed: ${TW.describeContract(c)}`, 'bad');
     }
   }
+  // Hand over one contract if it ends here and you have what it needs. Returns a line for
+  // the report: 'ok' when paid, 'warn' when cargo is still short.
+  function deliverOne(c) {
+    if (c.good) {   // dispatches and passengers need no cargo
+      const held = S.ship.cargo[c.good]?.qty || 0;
+      if (held < c.qty) return `<li class="warn">${TW.contractIcon(c)} ${TW.describeContract(c)}: you have ${held} of ${c.qty}. Bring the rest by ${dateStr(c.due)}.</li>`;
+      S.ship.cargo[c.good].qty -= c.qty;
+      if (!S.ship.cargo[c.good].qty) delete S.ship.cargo[c.good];
+    }
+    S.contracts = contracts().filter(x => x !== c);
+    S.cash += c.reward; S.stats.contracts = (S.stats.contracts || 0) + 1;
+    log(`Completed a contract: ${TW.describeContract(c).toLowerCase()} for ${fmt(c.reward)} gold.`);
+    return `<li class="ok">${TW.contractIcon(c)} ${TW.describeContract(c)}: <b>${gold(c.reward)}</b> paid.</li>`;
+  }
   // Hand over whatever contracts end in this port. Returns lines for the arrival report.
   function deliverContracts() {
-    const lines = [];
-    for (const c of contracts().filter(c => c.to === S.port)) {
-      if (c.good) {   // dispatches and passengers need no cargo
-        const held = S.ship.cargo[c.good]?.qty || 0;
-        if (held < c.qty) { lines.push(`<li class="warn">${TW.contractIcon(c)} ${TW.describeContract(c)}: you have ${held} of ${c.qty}. Bring the rest by ${dateStr(c.due)}.</li>`); continue; }
-        S.ship.cargo[c.good].qty -= c.qty;
-        if (!S.ship.cargo[c.good].qty) delete S.ship.cargo[c.good];
-      }
-      S.contracts = contracts().filter(x => x !== c);
-      S.cash += c.reward; S.stats.contracts = (S.stats.contracts || 0) + 1;
-      log(`Completed a contract: ${TW.describeContract(c).toLowerCase()} for ${fmt(c.reward)} gold.`);
-      lines.push(`<li class="ok">${TW.contractIcon(c)} ${TW.describeContract(c)}: <b>${gold(c.reward)}</b> paid.</li>`);
-    }
+    const lines = contracts().filter(c => c.to === S.port).map(deliverOne);
     if (lines.some(l => l.includes('class="ok"'))) { TW.sfx('coins'); S.peakWorth = Math.max(S.peakWorth, worth()); }
     return lines;
   }
+  const contractReport = (lines, then) => modal(`<h2>Contracts in ${port().name}</h2><ul class="checks">${lines.join('')}</ul>`, [['Excellent', then, 'big']]);
   function contractCard(c, action) {
     const days = c.due - S.day;
     const held = c.good ? (S.ship.cargo[c.good]?.qty || 0) : null;
@@ -231,7 +234,7 @@
         <small>For ${esc(c.issuer)} · due ${dateStr(c.due)} (${days} days)${c.bond ? ` · ${fmt(c.bond)} g bond if late` : ''}${held !== null && action !== 'take' ? ` · in hold: ${held}/${c.qty}` : ''}</small></div>
       <span class="c-reward">${gold(c.reward)}</span>
       ${action === 'take' ? `<button data-act="take-contract" data-id="${c.id}" data-where="${TW.contractWhere(c)}" ${contracts().length >= TW.MAX_CONTRACTS ? 'disabled title="You already hold three contracts"' : ''}>Accept</button>`
-        : action === 'abandon' ? `<button class="ghost" data-act="abandon-contract" data-id="${c.id}">Abandon</button>` : ''}
+        : action === 'abandon' ? `${c.to === S.port ? `<button data-act="deliver-contract" data-id="${c.id}" ${held !== null && held < c.qty ? `disabled title="You have ${held} of ${c.qty}"` : ''}>Deliver</button>` : ''}<button class="ghost" data-act="abandon-contract" data-id="${c.id}">Abandon</button>` : ''}
     </div>`;
   }
   function contractList(action) {
@@ -1575,17 +1578,18 @@
   function arrive(dest, towed) {
     S.port = dest;
     if (!towed) log(`Dropped anchor in ${TW.PORT[dest].name}.`);
-    remember(); checkMilestones(); save();
-    if (S.mode === 'career' && S.day >= CAREER_DAYS) return go('end');
+    remember(); checkMilestones();
+    if (S.mode === 'career' && S.day >= CAREER_DAYS) { save(); return go('end'); }
     view.place = 'city'; view.speech = null;
     TW.sfx('anchor');
     const delivered = deliverContracts();
     const collected = collectDebt();
+    save();   // after the handover, so reloading can't undo a delivery
     go('port', {}, portOrigin(dest));
     const showDebt = () => collected && modal(`<h2>Debt collectors!</h2>
       <p>Hard-faced men are waiting on the wharf with your overdue note. They take <b>${gold(collected.take)}</b>, including a ${fmt(collected.fee)} gold collection fee.</p>
       ${collected.left ? `<p class="bad">You still owe ${gold(collected.left)}, and it keeps growing at ${overduePct()}% a month.</p>` : '<p>Your debt is settled.</p>'}`, [['Grumble and pay', null, 'big']]);
-    if (delivered.length) modal(`<h2>Contracts in ${port().name}</h2><ul class="checks">${delivered.join('')}</ul>`, [['Excellent', showDebt, 'big']]);
+    if (delivered.length) contractReport(delivered, showDebt);
     else showDebt();
   }
 
@@ -1684,6 +1688,8 @@
       if (!S.difficulty) S.difficulty = 'easy';   // saves from before difficulty played as Easy
       applyDifficulty();
       view.place = 'city'; view.speech = null; go('port');
+      const done = deliverContracts().filter(l => l.includes('class="ok"'));
+      if (done.length) { save(); contractReport(done); }
     },
     'start': () => {
       const diff = (document.querySelector('input[name="ng-diff"]:checked') || {}).value || 'medium';
@@ -1730,6 +1736,12 @@
       if (!c) return;
       log(`Accepted a contract: ${TW.describeContract(c).toLowerCase()} by ${dateStr(c.due)} for ${fmt(c.reward)} gold.`);
       speak(TW.contractWhere(c) === 'tavern' ? 'smuggle' : 'contract'); TW.sfx('quill'); save(); render();
+    },
+    'deliver-contract': (b) => {
+      const c = contracts().find(x => x.id === b.dataset.id); if (!c || c.to !== S.port) return;
+      const line = deliverOne(c);
+      if (line.includes('class="ok"')) { TW.sfx('coins'); S.peakWorth = Math.max(S.peakWorth, worth()); }
+      save(); render(); contractReport([line]);
     },
     'abandon-contract': (b) => {
       const c = contracts().find(x => x.id === b.dataset.id); if (!c) return;
