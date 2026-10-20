@@ -1616,7 +1616,7 @@
       ];
       modal(`<h2>How to Play</h2>${rows.map(([img, title, text]) => `
         <div class="help-row">
-          <button class="help-shot" title="Click to enlarge"><img src="assets/img/help/${img}.jpg?r=2" alt="${title}" loading="lazy"></button>
+          <button class="help-shot" title="Click to enlarge"><img src="assets/img/help/${img}.jpg?r=3" alt="${title}" loading="lazy"></button>
           <div><h3>${title}</h3><p>${text}</p></div>
         </div>`).join('')}`, [['Got it', null, 'big']], 'wide');
       $('#modal').querySelectorAll('.help-shot').forEach(b => {
