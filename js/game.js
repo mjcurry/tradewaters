@@ -1525,11 +1525,18 @@
   function showPlunder(v, fleet, spoils, booty, loot, before) {
     const hullLost = before.hull - S.ship.hull;
     const newlyBroken = Math.max(0, S.ship.broken - before.broken);
-    const coins = Array.from({ length: 16 }, () =>
-      `<span class="coin-drop" style="left:${irand(4, 96)}%; animation-delay:${(Math.random() * 0.9).toFixed(2)}s; --spin:${irand(-540, 540)}deg">🪙</span>`).join('');
+    // At sea: the treasure chest and a shower of coins. A freed port: its own nation's flag
+    // going up over the fort, cheering on the wharf, and confetti in the colours of that flag.
+    const nation = fleet.port && (TW.NATION[fleet.port] || 'free');
+    const CONFETTI = { spanish: ['#c8102e', '#f5f0e1', '#f2b84b'], english: ['#c8102e', '#f5f0e1', '#1f4e8c'], french: ['#f5f0e1', '#f2b84b', '#1f4e8c'],
+      dutch: ['#ef7d00', '#f5f0e1', '#1f4e8c'], danish: ['#c8102e', '#f5f0e1'], free: ['#e8604c', '#f2b84b', '#3c9a63', '#3d86a8'] };
+    const drops = nation
+      ? Array.from({ length: 34 }, (_, i) => `<span class="confetti" style="left:${irand(2, 98)}%; background:${CONFETTI[nation][i % CONFETTI[nation].length]}; animation-delay:${(Math.random() * 1.1).toFixed(2)}s; --spin:${irand(-720, 720)}deg; --drift:${irand(-40, 40)}px"></span>`).join('')
+      : Array.from({ length: 16 }, () =>
+        `<span class="coin-drop" style="left:${irand(4, 96)}%; animation-delay:${(Math.random() * 0.9).toFixed(2)}s; --spin:${irand(-540, 540)}deg">🪙</span>`).join('');
     modal(`
-      <div class="plunder-hero" style="${bgStyle('plunder')}">
-        <div class="coin-rain" aria-hidden="true">${coins}</div>
+      <div class="plunder-hero${nation ? ' liberated' : ''}" style="${nation ? `background-image:url(assets/img/liberated/${nation}.jpg)` : bgStyle('plunder')}">
+        <div class="coin-rain" aria-hidden="true">${drops}</div>
         <h1>${fleet.port ? 'Liberated!' : 'Victory!'}</h1>
         <p>${fleet.port ? `${TW.PORT[fleet.port].name} is free! The townsfolk cheer you into the harbor.`
           : `${esc(fleet.captain)}’s ${spoils.length > 1 ? `fleet of ${spoils.length} is` : 'ship is'} sent to the bottom.`}</p>
@@ -2014,6 +2021,15 @@
       const fleet = makeFleet(), before = { hull: S.ship.hull, broken: S.ship.broken, ammo: { ...S.ammo }, worth: worth(), shotUsed: 0 };
       S.stats.won++;
       const { spoils, booty, loot } = plunder(fleet);
+      TW.music('victory');
+      showPlunder({ paused: true }, fleet, spoils, booty, loot, before);
+    },
+    // Skip to the liberation screen for a port, as if its defenses had just fallen.
+    liberate(id) {
+      this.hostile(id);
+      const fleet = makeDefenses(id), before = { hull: S.ship.hull, broken: S.ship.broken, ammo: { ...S.ammo }, worth: worth(), shotUsed: 0 };
+      S.stats.won++;
+      const { spoils, booty, loot } = liberate(fleet);
       TW.music('victory');
       showPlunder({ paused: true }, fleet, spoils, booty, loot, before);
     },

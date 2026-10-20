@@ -178,7 +178,7 @@ input, select { border: 1px solid rgba(19,50,74,0.3); border-radius: 0.4375rem; 
   .city-scene::before, .city-scene::after { animation: none; }
   .bld, .bld::before { transition: none; }
   .coin-drop, .loot, .plunder-hero h1, .plunder-hero p { animation: none !important; }
-  .coin-drop { display: none; }
+  .coin-drop, .confetti { display: none; }
   [class*="t-in-"], [class*="t-out-"] { animation: none !important; }
 }
 .newgame { position: relative; width: min(28.75rem, calc(100vw - 2rem)); display: flex; flex-direction: column; gap: 0.75rem; }
@@ -426,6 +426,13 @@ table.market .trade button.sell { background: var(--coral); }
 .coin-rain { position: absolute; inset: 0; pointer-events: none; }
 .coin-drop { position: absolute; top: -2rem; font-size: 1.5rem; animation: coin-fall 1.7s cubic-bezier(0.4, 0, 0.8, 0.6) both; }
 @keyframes coin-fall { from { transform: translateY(0) rotate(0); opacity: 1; } 85% { opacity: 1; } to { transform: translateY(15rem) rotate(var(--spin)); opacity: 0; } }
+/* A freed port: paper confetti in the flag's colours, fluttering down a little slower. */
+.confetti { position: absolute; top: -1rem; width: 0.45rem; height: 0.8rem; border-radius: 1px; box-shadow: 0 1px 1px rgba(0,0,0,0.25);
+  animation: confetti-fall 2.4s cubic-bezier(0.3, 0, 0.7, 0.8) both; }
+@keyframes confetti-fall { from { transform: translate(0, 0) rotate(0); opacity: 1; } 80% { opacity: 1; }
+  to { transform: translate(var(--drift), 14rem) rotate(var(--spin)); opacity: 0; } }
+.plunder-hero.liberated { background-position: center 6%; }   /* keep the flag going up over the fort in view */
+.plunder-hero.liberated h1 { color: #fff3d6; text-shadow: 0 3px 0 rgba(0,0,0,0.35), 0 0 1.2rem rgba(242,184,75,0.65); }
 .plunder-body { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4rem; padding: 1rem 1.4rem 0.4rem; }
 .plunder-body h3 { margin-top: 0; }
 .plunder-body > section { min-width: 0; }  /* let the columns shrink on narrow screens */
