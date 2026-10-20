@@ -550,3 +550,11 @@ table.manifest td:not(:first-child), table.manifest th:not(:first-child) { text-
 @media (max-width: 900px) { .ship-items { grid-template-columns: 1fr; } }
 /* A special shot button with shot loaded in the guns */
 .combat-bar button.armed { box-shadow: 0 0 0 2px var(--gold), 0 0 0.8rem rgba(242,184,75,0.6); }
+
+/* Bank quick-fill chips */
+.quick-fill { display: flex; align-items: center; gap: 0.5rem; margin: 0.55rem 0 0; flex-wrap: wrap; }
+.quick-fill > span { font-size: 0.85rem; color: var(--muted); min-width: 7.5rem; }
+.quick-fill .chip { display: inline-flex; align-items: baseline; gap: 0.4rem; padding: 0.3rem 0.7rem; font-size: 0.85rem;
+  background: rgba(19,50,74,0.08); color: var(--navy); border: 1px solid rgba(19,50,74,0.2); }
+.quick-fill .chip:hover:not(:disabled) { background: rgba(47,143,157,0.18); }
+.quick-fill .chip small { font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }

@@ -958,6 +958,8 @@
       <div class="row"><input type="number" id="amt" min="0" placeholder="amount">
       <button data-act="deposit">Deposit</button><button data-act="withdraw">Withdraw</button>
       <button class="ghost" data-act="deposit-all">Deposit all</button><button class="ghost" data-act="withdraw-all">Withdraw all</button></div>
+      ${[['cash', 'Of your purse', S.cash], ['bank', 'Of your balance', S.bank]].map(([of, label, total]) => `<div class="quick-fill"><span>${label}</span>
+        ${[25, 50, 75].map(pct => `<button class="chip" data-act="bank-fill" data-of="${of}" data-pct="${pct}" ${total > 0 ? '' : 'disabled'}>${pct}%<small>${fmt(Math.floor(total * pct / 100))}</small></button>`).join('')}</div>`).join('')}
       <p class="hint">You can only use banks in ports that have one.</p>`;
   }
   function renderLender(el) {
@@ -1735,6 +1737,12 @@
           S.offers[S.port] = S.offers[S.port].filter(o => o.id !== id);
           log(`Bought a ${nd.name}. A fine vessel!`); TW.sfx('bell'); speak('buyShip'); save(); render();
         }, 'big'], ['Cancel', null, 'ghost']]);
+    },
+    // Prefill the amount with a share of the purse or the balance; nothing moves until Deposit/Withdraw.
+    'bank-fill': (b) => {
+      const total = b.dataset.of === 'bank' ? S.bank : S.cash, input = $('#amt');
+      input.value = Math.floor(total * +b.dataset.pct / 100);
+      input.focus();
     },
     'deposit': () => { const a = Math.min(amount(), S.cash); S.cash -= a; S.bank += a; if (a) log(`Deposited ${fmt(a)} gold in the bank.`); if (a) TW.sfx('coins'); speak(a ? 'deposit' : 'nothing'); save(); render(); },
     'withdraw': () => { const a = Math.min(amount(), S.bank); S.bank -= a; S.cash += a; if (a) log(`Withdrew ${fmt(a)} gold from the bank.`); if (a) TW.sfx('coins'); speak(a ? 'withdraw' : 'nothing'); save(); render(); },
