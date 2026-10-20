@@ -155,7 +155,16 @@
 
   const Combat = {};
   let S = null;  // active combat state
-  const LEDGE_Y = 258;   // where port defenses stand on the siege background's headland
+  const LEDGE_Y = 258;   // where port defenses stand on the generic siege background's headland
+  // Each port has its own siege backdrop, painted to match its city view, with the same
+  // headland layout. Their cliff tops all sit a little lower than the generic one's.
+  const PORT_LEDGE_Y = 273;
+  const siegeArt = {};
+  TW.loadSiegeArt = id => {
+    if (!siegeArt[id]) { const img = new Image(); img.src = `assets/img/siege/${id}.jpg`; siegeArt[id] = img; }
+    return siegeArt[id];
+  };
+  const loaded = img => img && img.complete && img.naturalWidth > 0;
 
   // Battle pace: every gun on both sides reloads this much slower than its listed rate, and
   // shot flies for FLIGHT seconds, so a fight is easier to follow. Both sides slow alike.
@@ -191,8 +200,11 @@
     const land = setup.enemies.filter(e => e.land), ships = setup.enemies.filter(e => !e.land);
     const batteries = land.filter(e => e.kind === 'battery');
     const SLOTS = batteries.length > 1 ? [605, 880] : [620];
+    // A port battle uses that port's own backdrop if it has loaded, else the generic one.
+    const portArt = setup.port && TW.loadSiegeArt(setup.port), ownArt = loaded(portArt);
+    const ledge = ownArt ? PORT_LEDGE_Y : LEDGE_Y;
     const place = (e, i, n) => setup.port
-      ? (e.land ? { x: e.kind === 'fort' ? 760 : SLOTS[batteries.indexOf(e)] ?? 905, y: LEDGE_Y }
+      ? (e.land ? { x: e.kind === 'fort' ? 760 : SLOTS[batteries.indexOf(e)] ?? 905, y: ledge }
         : { x: 640 + (n === 1 ? 110 : i * (220 / Math.max(1, n - 1))), y: 418 + (i % 2) * 22 })
       : { x: 560 + (n === 1 ? 160 : i * (300 / Math.max(1, n - 1))), y: 318 + (i % 2) * 18 };
     // Difficulty toughens hulls and quickens the enemy's reload (TW.diff in data.js).
@@ -211,7 +223,7 @@
       px: 230, py: 420, booty: 0, enemyAim: (setup.enemyAim ?? 1) * TW.diff.enemyAim,
     };
     S.port = !!setup.port;
-    S.bg = (S.port && TW.images.siege) || nextBackdrop();
+    S.bg = S.port ? (ownArt ? portArt : TW.images.siege) : nextBackdrop();
     S.waveTop = S.port ? 336 : 300;
     canvas.onclick = (ev) => {
       const r = canvas.getBoundingClientRect();

@@ -1155,6 +1155,7 @@
 
   function startVoyage(dest, route, days) {
     preloadScene(dest);
+    if (isHostile(dest)) TW.loadSiegeArt(dest);   // in case you have to fight your way in
     S.stats.voyages++;
     TW.sfx('sail');
     const scale = Math.max(0.5, Math.min(1.6, route.len / 350));
@@ -1201,6 +1202,7 @@
 
   function hostileArrival(v) {
     const p = TW.PORT[v.dest], h = hostile()[v.dest];
+    TW.loadSiegeArt(v.dest);
     v.paused = true;
     TW.sfx('bell');
     modal(`<h2>☠ A hostile port!</h2>
