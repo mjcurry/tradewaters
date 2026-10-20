@@ -170,17 +170,20 @@
       ? (e.land ? { x: e.kind === 'fort' ? 760 : SLOTS[batteries.indexOf(e)] ?? 905, y: LEDGE_Y }
         : { x: 640 + (n === 1 ? 110 : i * (220 / Math.max(1, n - 1))), y: 418 + (i % 2) * 22 })
       : { x: 560 + (n === 1 ? 160 : i * (300 / Math.max(1, n - 1))), y: 318 + (i % 2) * 18 };
-    const enemies = [...land.map((e, i) => [e, i, land.length]), ...ships.map((e, i) => [e, i, ships.length])].map(([e, i, n]) => ({
-      ...e, hp: e.hull, maxHp: e.hull, alive: true, sink: 0, ...place(e, i, n),
-      guns: Array.from({ length: e.guns }, () => rand(0.8, e.reload * 1.5)),
-    }));
+    // Difficulty toughens hulls and quickens the enemy's reload (TW.diff in data.js).
+    const D = TW.diff;
+    const enemies = [...land.map((e, i) => [e, i, land.length]), ...ships.map((e, i) => [e, i, ships.length])].map(([e, i, n]) => {
+      const hull = Math.round(e.hull * D.enemyHull), reload = e.reload / D.enemyFire;
+      return { ...e, hull, reload, hp: hull, maxHp: hull, alive: true, sink: 0, ...place(e, i, n),
+        guns: Array.from({ length: e.guns }, () => rand(0.8, reload * 1.5)) };
+    });
     const guns = Array.from({ length: setup.ship.guns }, (_, i) => ({ t: rand(0.3, 1.2), broken: i < setup.ship.broken }));
     S = {
       ctx, canvas, onEnd, enemies, guns, pShip,
       hull: setup.ship.hull, maxHull: pShip.hull,
       ammo: { ...setup.ammo }, target: 0, shots: [], fx: [], t: 0, shake: 0,
       flee: null, fleeCooldown: 0, over: false, msg: null, msgT: 0,
-      px: 230, py: 420, booty: 0, enemyAim: setup.enemyAim ?? 1,
+      px: 230, py: 420, booty: 0, enemyAim: (setup.enemyAim ?? 1) * TW.diff.enemyAim,
     };
     S.port = !!setup.port;
     S.bg = (S.port && TW.images.siege) || TW.images.combat;

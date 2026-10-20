@@ -558,3 +558,12 @@ table.manifest td:not(:first-child), table.manifest th:not(:first-child) { text-
   background: rgba(19,50,74,0.08); color: var(--navy); border: 1px solid rgba(19,50,74,0.2); }
 .quick-fill .chip:hover:not(:disabled) { background: rgba(47,143,157,0.18); }
 .quick-fill .chip small { font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Difficulty picker on the new-game screen */
+fieldset.difficulty { border: 1px solid rgba(19,50,74,0.2); border-radius: 0.5rem; padding: 0.4rem 0.7rem 0.6rem; margin: 0.6rem 0; }
+fieldset.difficulty legend { font-family: var(--font-ui); font-size: 0.85rem; color: var(--muted); padding: 0 0.3rem; }
+.newgame .diff-opt { display: grid; grid-template-columns: auto 6rem 1fr; align-items: baseline; gap: 0.6rem; padding: 0.3rem 0; margin: 0; cursor: pointer; }
+.newgame .diff-opt input { margin: 0; width: auto; padding: 0; }
+.newgame .diff-opt b { font-family: var(--font-head); color: var(--navy); }
+.diff-opt small { color: var(--muted); font-size: 0.8rem; line-height: 1.25; }
+.diff-row small { color: var(--muted); }

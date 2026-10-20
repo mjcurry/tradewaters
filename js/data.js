@@ -54,8 +54,29 @@ TW.SHIPS = [
   { id: 'manowar',    name: 'Man-o-War',  price: 2600000, hull: 450, cargo: 300, guns: 40, reload: 1.4, speed: 40, unlock: 3000000 },
 ];
 TW.SHIP = Object.fromEntries(TW.SHIPS.map(s => [s.id, s]));
+// Difficulty. Easy is the game as first balanced; each step up makes pirates tougher and
+// more frequent, markets thinner and life at sea dearer. The game sets TW.diff whenever a
+// save loads or the setting changes, and every rule reads it from there.
+//   enemyHull/enemyFire/enemyAim: pirate and fort hull, rate of fire, accuracy
+//   danger: added to the danger level (bigger fleets and forts sooner)
+//   pirates/storms: encounter odds; spread: what a market pays as a share of its price
+//   impact: how far your own trades move prices; upkeep: wages; booty: plunder gold
+//   bank/loan: interest rates
+TW.DIFFICULTIES = [
+  { id: 'easy', name: 'Easy', desc: 'Forgiving pirates and fat margins. The Caribbean as first charted.',
+    enemyHull: 1, enemyFire: 1, enemyAim: 1, danger: 0, pirates: 1, storms: 1, spread: 0.9, impact: 1, upkeep: 1, booty: 1, bank: 1, loan: 1 },
+  { id: 'medium', name: 'Medium', desc: 'Pirates hit harder and turn up more often; margins are thinner and crews cost more.',
+    enemyHull: 1.15, enemyFire: 1.08, enemyAim: 1.05, danger: 2, pirates: 1.3, storms: 1.25, spread: 0.88, impact: 1.15, upkeep: 1.2, booty: 0.9, bank: 0.85, loan: 1.1 },
+  { id: 'hard', name: 'Hard', desc: 'Bigger fleets come sooner, every route dries up fast and a crew eats your profit.',
+    enemyHull: 1.3, enemyFire: 1.15, enemyAim: 1.1, danger: 3, pirates: 1.6, storms: 1.5, spread: 0.865, impact: 1.35, upkeep: 1.45, booty: 0.8, bank: 0.7, loan: 1.25 },
+  { id: 'impossible', name: 'Impossible', desc: 'Every pirate in the Caribbean wants you dead and every merchant wants your purse.',
+    enemyHull: 1.45, enemyFire: 1.25, enemyAim: 1.15, danger: 5, pirates: 2, storms: 1.8, spread: 0.85, impact: 1.6, upkeep: 1.8, booty: 0.7, bank: 0.5, loan: 1.5 },
+];
+TW.DIFFICULTY = Object.fromEntries(TW.DIFFICULTIES.map(d => [d.id, d]));
+TW.diff = TW.DIFFICULTY.easy;
+
 // Daily wages and provisions: bigger ships need bigger crews, and every cannon needs gunners.
-TW.upkeep = (ship, guns) => Math.round(ship.price * 0.0004 + guns * 3);
+TW.upkeep = (ship, guns) => Math.round((ship.price * 0.0004 + guns * 3) * TW.diff.upkeep);
 TW.GUN_SPACE = 5;
 TW.CANNON_PRICE = 1500;
 

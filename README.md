@@ -69,7 +69,7 @@ It keeps the core of the classics: **buy low, sell high, and survive the pirates
 - 🚢 **Seven ships,** from sloop to man-o-war. Every cannon costs cargo space, so choose between firepower and profit. Open the Ship & Captain sheet in any port to name your ship, compare its specs, price your cargo and review your record.
 - 💰 **Bank, moneylender, sea charts and rumors.** The bank pays about 20% a year and covers wages when your purse is empty; the moneylender charges 10% a month and sends collectors after overdue loans.
 - ⚓ **Running costs.** Crews draw daily wages and provisions, so slow routes and oversized gun decks cost real money.
-- 🏆 **Career mode** (10 years to make your fortune) or **Endless.** Progress autosaves in your browser.
+- 🏆 **Career mode** (10 years to make your fortune) or **Endless,** on **Easy, Medium, Hard or Impossible.** Harder seas bring tougher, more frequent pirates and storms, thinner margins and dearer crews; change it any time from the menu. Progress autosaves in your browser.
 
 ## Play locally
 

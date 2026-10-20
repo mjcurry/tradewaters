@@ -65,14 +65,19 @@
   function loadSave() { try { return JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { return null; } }
 
   // ---------- new game ----------
-  function newGame(name, mode, home) {
+  // The chosen difficulty drives TW.diff, which combat, markets and costs read.
+  function applyDifficulty() { TW.diff = TW.DIFFICULTY[S.difficulty] || TW.DIFFICULTY.easy; }
+  const diffName = () => (TW.DIFFICULTY[S.difficulty] || TW.DIFFICULTY.easy).name;
+
+  function newGame(name, mode, home, difficulty = 'medium') {
     S = {
-      v: 1, name: name || 'Captain', mode, day: 0, cash: 6000, bank: 0, debt: 0, peakWorth: 6000,
+      v: 1, name: name || 'Captain', mode, difficulty, day: 0, cash: 6000, bank: 0, debt: 0, peakWorth: 6000,
       port: home, home, ship: { type: 'sloop', hull: TW.SHIP.sloop.hull, guns: 2, broken: 0, cargo: {} },
       ammo: { chain: 0, fire: 0, keg: 0 }, known: [], seen: {}, log: [], offers: {}, offerMonth: -1,
       milestone: 0, stats: { voyages: 0, won: 0, fled: 0, lost: 0, storms: 0, profit: 0, booty: 0 },
       visited: { [home]: true },
     };
+    applyDifficulty();
     const hp = TW.PORT[home];
     S.known = TW.PORTS.slice().sort((a, b) => Math.hypot(a.x - hp.x, a.y - hp.y) - Math.hypot(b.x - hp.x, b.y - hp.y))
       .slice(0, 9).map(p => p.id);
@@ -148,13 +153,13 @@
     expireContracts();
     hostileTick();
     if (S.debt > 0 && S.loanDue && S.day === S.loanDue) {
-      log('Your loan is now overdue. The moneylender’s interest rises to 15% a month.');
+      log(`Your loan is now overdue. The moneylender’s interest rises to ${overduePct()}% a month.`);
       toast('⚠ Your loan is overdue!', 'bad');
     }
     if (monthIndex(S.day) !== before) {
-      if (S.bank > 0) { const i = Math.round(S.bank * BANK_RATE * mods().bankRate); S.bank += i; log(`The bank paid ${fmt(i)} gold in interest.`); }
+      if (S.bank > 0) { const i = Math.round(S.bank * bankRate()); S.bank += i; log(`The bank paid ${fmt(i)} gold in interest.`); }
       if (S.debt > 0) {
-        const i = Math.round(S.debt * (loanOverdue() ? OVERDUE_RATE : LOAN_RATE) * mods().loanRate); S.debt += i;
+        const i = Math.round(S.debt * (loanOverdue() ? OVERDUE_RATE : LOAN_RATE) * mods().loanRate * TW.diff.loan); S.debt += i;
         log(`The moneylender adds ${fmt(i)} gold of interest to your debt.`);
       }
       if (S.wages) { log(`Paid ${fmt(S.wages)} gold in wages and provisions last month.`); S.wages = 0; }
@@ -420,6 +425,10 @@
         <label>Home port
           <select id="ng-home">${START_PORTS.map(id => `<option value="${id}">${TW.PORT[id].name}</option>`).join('')}</select>
         </label>
+        <fieldset class="difficulty"><legend>Difficulty</legend>
+          ${TW.DIFFICULTIES.map(d => `<label class="diff-opt"><input type="radio" name="ng-diff" value="${d.id}" ${d.id === (view.ngDiff || 'medium') ? 'checked' : ''}>
+            <b>${d.name}</b><small>${d.desc}</small></label>`).join('')}
+        </fieldset>
         <p class="hint">You begin with a sloop, two cannons and 6,000 gold.</p>
         <div class="row"><button class="ghost" data-act="title">Back</button><button class="big" data-act="start">Set Sail</button></div>
       </div>`;
@@ -689,6 +698,7 @@
         <section><h3>Captain’s record</h3>
           <div class="rank"><b>${rankOf(w)}</b>${next ? `<div class="meter"><i style="width:${Math.round(100 * (w - lo) / (next[0] - lo))}%"></i></div><small>${gold(next[0] - w)} more to ${next[1]}</small>` : '<small>The highest rank there is.</small>'}</div>
           <div class="kv"><span>Net worth</span><b>${gold(w)}</b></div>
+          <div class="kv"><span>Difficulty</span><b>${diffName()}</b></div>
           <div class="kv"><span>Days in command</span><b>${fmt(S.day)}</b></div>
           <div class="kv"><span>Voyages</span><b>${st.voyages}</b></div>
           <div class="kv"><span>Trading profit</span><b>${gold(st.profit)}</b></div>
@@ -860,6 +870,8 @@
   }
 
   const roundCost = () => Math.round(50 * mods().drinks);
+  const bankRate = () => BANK_RATE * mods().bankRate * TW.diff.bank;
+  const overduePct = () => +(OVERDUE_RATE * mods().loanRate * TW.diff.loan * 100).toFixed(1);
   // Each tavern's curiosity trader and each shipyard's fittings restock monthly.
   function curiosAt(portId) {
     const month = monthIndex(S.day), store = S.curios || (S.curios = {});
@@ -954,7 +966,7 @@
 
   function renderBank(el) {
     el.innerHTML = `<h2>Bank</h2>
-      <p>Deposits are safe from pirates and earn <b>${+(BANK_RATE * mods().bankRate * 100).toFixed(2)}% a month</b>. Wages are drawn from here if your purse runs dry. Your balance: ${gold(S.bank)}</p>
+      <p>Deposits are safe from pirates and earn <b>${+(bankRate() * 100).toFixed(2)}% a month</b>. Wages are drawn from here if your purse runs dry. Your balance: ${gold(S.bank)}</p>
       <div class="row"><input type="number" id="amt" min="0" placeholder="amount">
       <button data-act="deposit">Deposit</button><button data-act="withdraw">Withdraw</button>
       <button class="ghost" data-act="deposit-all">Deposit all</button><button class="ghost" data-act="withdraw-all">Withdraw all</button></div>
@@ -964,10 +976,10 @@
   }
   function renderLender(el) {
     const max = loanLimit(), overdue = loanOverdue();
-    const due = S.debt > 0 && S.loanDue ? (overdue ? `<b class="bad">Overdue since ${dateStr(S.loanDue)}.</b> Interest is now 15% a month and collectors will meet you in any port with a moneylender.`
+    const due = S.debt > 0 && S.loanDue ? (overdue ? `<b class="bad">Overdue since ${dateStr(S.loanDue)}.</b> Interest is now ${overduePct()}% a month and collectors will meet you in any port with a moneylender.`
       : `Due in <b>${S.loanDue - S.day} days</b> (${dateStr(S.loanDue)}).`) : '';
     el.innerHTML = `<h2>Moneylender</h2>
-      <p>${mods().noLoans ? '<b class="bad">Word of your Banker’s Doll has reached the moneylenders. They will not lend to you.</b>' : `Loans cost <b>${+(LOAN_RATE * mods().loanRate * 100).toFixed(1)}% a month</b>, up to ${mods().loanCap > 1 ? `${mods().loanCap}× ` : ''}your net worth, and fall due ${LOAN_TERM} days after you first borrow.`}</p>
+      <p>${mods().noLoans ? '<b class="bad">Word of your Banker’s Doll has reached the moneylenders. They will not lend to you.</b>' : `Loans cost <b>${+(LOAN_RATE * mods().loanRate * TW.diff.loan * 100).toFixed(1)}% a month</b>, up to ${mods().loanCap > 1 ? `${mods().loanCap}× ` : ''}your net worth, and fall due ${LOAN_TERM} days after you first borrow.`}</p>
       <p>Current debt: ${gold(S.debt)} ${due}</p>
       <p>${overdue ? 'No new loans until you settle up.' : `You may borrow up to ${gold(max)}.`}</p>
       <div class="row"><input type="number" id="amt" min="0" placeholder="amount">
@@ -1073,7 +1085,7 @@
   function dangerLevel() {
     const w = Math.max(1, worth());
     // Mostly driven by wealth; the sea also grows a little more dangerous every two years.
-    return Math.max(0, Math.min(48, Math.round(4 * Math.log2(w / 4000)) + Math.floor(S.day / 730)));
+    return Math.max(0, Math.min(48, Math.round(4 * Math.log2(w / 4000)) + Math.floor(S.day / 730) + TW.diff.danger));
   }
 
   function makeFleet() {
@@ -1098,10 +1110,10 @@
     const scale = Math.max(0.5, Math.min(1.6, route.len / 350));
     const events = [];
     const m = mods();
-    if (Math.random() < 0.12 * scale * m.storm) events.push({ t: rand(0.2, 0.8), kind: 'storm' });
+    if (Math.random() < 0.12 * scale * m.storm * TW.diff.storms) events.push({ t: rand(0.2, 0.8), kind: 'storm' });
     // Fewer but tougher encounters; a fuller hold draws more attention.
     const watched = contracts().some(c => c.risky && c.to === dest);   // a leaked job draws pirates
-    const pirateChance = (0.18 * scale * (cargoQty() ? 0.75 + 0.5 * usedSpace() / shipDef().cargo : 0.5) + (watched ? 0.2 : 0)) * m.pirates;
+    const pirateChance = (0.18 * scale * (cargoQty() ? 0.75 + 0.5 * usedSpace() / shipDef().cargo : 0.5) + (watched ? 0.2 : 0)) * m.pirates * TW.diff.pirates;
     if (Math.random() < pirateChance) events.push({ t: rand(0.25, 0.85), kind: 'pirates' });
     if (Math.random() < 0.05) events.push({ t: rand(0.2, 0.8), kind: 'flotsam' });
     // Navy patrols watch the approaches to ports that ban goods you are carrying.
@@ -1377,7 +1389,7 @@
       : r < 0.18 ? [rand(0.3, 0.5), ship.land ? 'Already looted' : 'Barely a purse']
       : [rand(0.65, 1.2), ''];
     // Odd sums read like counted coin, not a round figure.
-    return { gold: Math.max(1, Math.round(ship.booty * mult) + irand(-9, 9)), note };
+    return { gold: Math.max(1, Math.round(ship.booty * mult * TW.diff.booty) + irand(-9, 9)), note };
   }
   // Spoils for taking back a hostile port: the defenders' gold and stores, plus gems from
   // the grateful town (paid in gold instead if the hold is full). The harbor reopens.
@@ -1488,7 +1500,7 @@
     go('port', {}, portOrigin(dest));
     const showDebt = () => collected && modal(`<h2>Debt collectors!</h2>
       <p>Hard-faced men are waiting on the quay with your overdue note. They take <b>${gold(collected.take)}</b>, including a ${fmt(collected.fee)} gold collection fee.</p>
-      ${collected.left ? `<p class="bad">You still owe ${gold(collected.left)}, and it keeps growing at 15% a month.</p>` : '<p>Your debt is settled.</p>'}`, [['Grumble and pay', null, 'big']]);
+      ${collected.left ? `<p class="bad">You still owe ${gold(collected.left)}, and it keeps growing at ${overduePct()}% a month.</p>` : '<p>Your debt is settled.</p>'}`, [['Grumble and pay', null, 'big']]);
     if (delivered.length) modal(`<h2>Contracts in ${port().name}</h2><ul class="checks">${delivered.join('')}</ul>`, [['Excellent', showDebt, 'big']]);
     else showDebt();
   }
@@ -1496,14 +1508,16 @@
   // ----- End -----
   function renderEnd(el) {
     const w = worth();
-    let best = 0; try { best = +localStorage.getItem('tradewaters-best') || 0; } catch (e) {}
+    // Best scores are kept per difficulty (Easy keeps the original key).
+    const bestKey = 'tradewaters-best' + (S.difficulty && S.difficulty !== 'easy' ? '-' + S.difficulty : '');
+    let best = 0; try { best = +localStorage.getItem(bestKey) || 0; } catch (e) {}
     const isBest = w > best;
-    if (isBest) try { localStorage.setItem('tradewaters-best', String(w)); } catch (e) {}
+    if (isBest) try { localStorage.setItem(bestKey, String(w)); } catch (e) {}
     el.innerHTML = `${titleArt(true)}
       <div class="panel newgame end">
         <h2>${S.mode === 'career' ? 'Ten Years at Sea' : 'Retirement'}</h2>
-        <p>${esc(S.name)} retires as a <b>${rankOf(w)}</b>.</p>
-        <p class="score">Net worth ${gold(w)}${isBest ? ' <span class="up">New best!</span>' : ` <small>(best ${fmt(best)})</small>`}</p>
+        <p>${esc(S.name)} retires as a <b>${rankOf(w)}</b>, on ${diffName()}.</p>
+        <p class="score">Net worth ${gold(w)}${isBest ? ` <span class="up">New best on ${diffName()}!</span>` : ` <small>(best on ${diffName()}: ${fmt(best)})</small>`}</p>
         <div class="kv"><span>Voyages</span><b>${S.stats.voyages}</b></div>
         <div class="kv"><span>Trading profit</span><b>${fmt(S.stats.profit)}</b></div>
         <div class="kv"><span>Pirate fleets sunk / escaped / lost to</span><b>${S.stats.won} / ${S.stats.fled} / ${S.stats.lost}</b></div>
@@ -1526,6 +1540,16 @@
       TW.sfx('click');
       buttons[+i][1] && buttons[+i][1]();
     };
+  }
+
+  // Pick a new difficulty mid-voyage; it takes effect straight away.
+  function chooseDifficulty() {
+    modal(`<h2>Difficulty</h2><p class="hint">Takes effect at once. Your score is kept separately for each difficulty.</p>
+      ${TW.DIFFICULTIES.map(d => `<div class="kv diff-row"><span><b>${d.name}</b>${d.id === S.difficulty ? ' <small class="up">current</small>' : ''}<br><small>${d.desc}</small></span></div>`).join('')}`,
+      [...TW.DIFFICULTIES.filter(d => d.id !== S.difficulty).map(d => [d.name, () => {
+        S.difficulty = d.id; applyDifficulty();
+        log(`Difficulty set to ${d.name}.`); toast(`Difficulty: <b>${d.name}</b>`); save(); render();
+      }, 'ghost']), ['Cancel', null, 'big']]);
   }
 
   function amount() { return Math.max(0, Math.floor(+($('#amt')?.value) || 0)); }
@@ -1572,10 +1596,13 @@
     'continue': () => {
       S = loadSave(); if (!S) return go('title');
       if (S.debt > 0 && !S.loanDue) S.loanDue = S.day + LOAN_TERM;   // saves from before loans had due dates
+      if (!S.difficulty) S.difficulty = 'easy';   // saves from before difficulty played as Easy
+      applyDifficulty();
       view.place = 'city'; view.speech = null; go('port');
     },
     'start': () => {
-      newGame($('#ng-name').value.trim(), $('#ng-mode').value, $('#ng-home').value);
+      const diff = (document.querySelector('input[name="ng-diff"]:checked') || {}).value || 'medium';
+      newGame($('#ng-name').value.trim(), $('#ng-mode').value, $('#ng-home').value, diff);
       view.place = 'city'; view.speech = null; go('port');
     },
     'help': () => {
@@ -1596,8 +1623,9 @@
         b.onclick = () => b.closest('.help-row').classList.toggle('zoomed');
       });
     },
-    'menu': () => modal(`<h2>Menu</h2><p>Your game saves automatically each time you reach port.</p>`,
-      [['Resume', null, 'big'], ['Retire and see your score', () => go('end'), 'ghost'], ['Quit to title', () => { save(); go('title'); }, 'ghost']]),
+    'menu': () => modal(`<h2>Menu</h2><p>Your game saves automatically each time you reach port.</p>
+      <p>Difficulty: <b>${diffName()}</b></p>`,
+      [['Resume', null, 'big'], ['Change difficulty', () => chooseDifficulty(), 'ghost'], ['Retire and see your score', () => go('end'), 'ghost'], ['Quit to title', () => { save(); go('title'); }, 'ghost']]),
     'toggle-sfx': () => { TW.toggleAudio('sfx'); hud(); },
     'toggle-music': () => { TW.toggleAudio('music'); hud(); },
     'enter': (b) => {

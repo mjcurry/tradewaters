@@ -8,7 +8,9 @@
 (function () {
   const rand = (a, b) => a + Math.random() * (b - a);
   const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
-  const SELL_SPREAD = 0.9;
+  // Difficulty sets the spread (what a market pays as a share of its price) and how far
+  // your own trades move prices (TW.diff in data.js).
+  const spread = () => TW.diff.spread, impact = () => TW.diff.impact;
   const PRESSURE = 0.6;         // lasting price shift per 'depth' units traded
   const PRESSURE_DECAY = 0.99; // per day: half-life of about 69 days
 
@@ -69,19 +71,19 @@
   };
 
   TW.unitBuy = e => Math.max(1, Math.round(e.price));
-  TW.unitSell = e => Math.max(1, Math.round(e.price * SELL_SPREAD));
+  TW.unitSell = e => Math.max(1, Math.round(e.price * spread()));
 
   // Cost of buying qty units, walking the price up unit by unit.
   TW.quoteBuy = function (state, portId, goodId, qty) {
     const e = state.market[portId][goodId], g = TW.GOOD[goodId];
     let p = e.price, total = 0;
-    for (let i = 0; i < qty; i++) { total += Math.max(1, Math.round(p)); p *= 1 + g.elastic; }
+    for (let i = 0; i < qty; i++) { total += Math.max(1, Math.round(p)); p *= 1 + g.elastic * impact(); }
     return { total, after: p };
   };
   TW.quoteSell = function (state, portId, goodId, qty) {
     const e = state.market[portId][goodId], g = TW.GOOD[goodId];
     let p = e.price, total = 0;
-    for (let i = 0; i < qty; i++) { total += Math.max(1, Math.round(p * SELL_SPREAD)); p *= 1 - g.elastic; }
+    for (let i = 0; i < qty; i++) { total += Math.max(1, Math.round(p * spread())); p *= 1 - g.elastic * impact(); }
     return { total, after: p };
   };
 
@@ -93,7 +95,7 @@
     while (n < limit) {
       const c = Math.max(1, Math.round(p));
       if (total + c > cash) break;
-      total += c; p *= 1 + g.elastic; n++;
+      total += c; p *= 1 + g.elastic * impact(); n++;
     }
     return n;
   };
@@ -101,13 +103,13 @@
   TW.applyBuy = function (state, portId, goodId, qty) {
     const q = TW.quoteBuy(state, portId, goodId, qty), e = state.market[portId][goodId];
     e.price = q.after; e.stock -= qty;
-    e.press = Math.min(0.9, (e.press || 0) + qty / TW.GOOD[goodId].depth * PRESSURE);
+    e.press = Math.min(0.9, (e.press || 0) + qty / TW.GOOD[goodId].depth * PRESSURE * impact());
     return q.total;
   };
   TW.applySell = function (state, portId, goodId, qty) {
     const q = TW.quoteSell(state, portId, goodId, qty), e = state.market[portId][goodId];
     e.price = q.after; e.stock += qty * 0.5;
-    e.press = Math.max(-0.5, (e.press || 0) - qty / TW.GOOD[goodId].depth * PRESSURE);
+    e.press = Math.max(-0.5, (e.press || 0) - qty / TW.GOOD[goodId].depth * PRESSURE * impact());
     return q.total;
   };
 
