@@ -627,10 +627,10 @@
       [S.ammo.chain + S.ammo.fire + S.ammo.keg > 0, `${S.ammo.chain + S.ammo.fire + S.ammo.keg} special shot`],
     ];
     el.innerHTML = `<h2>Harbor Office</h2>
-      <div class="threat t${sea.act}"><span>Pirate activity</span><b>${ACTIVITY[sea.act]}</b></div>
-      <div class="threat weather w${sea.wx}"><span>Weather report${hurricaneSeason() ? '<small>Hurricane season</small>' : ''}</span>
-        <b>${WEATHER[sea.wx].name}</b></div>
-      <p class="hint weather-note">${WEATHER[sea.wx].desc} ${shipWeather()}</p>
+      <div class="threat t${sea.act}"><div class="threat-row"><span>Pirate activity</span><b>${ACTIVITY[sea.act]}</b></div>
+        <p class="threat-note">${ACTIVITY_DESC[sea.act]}</p></div>
+      <div class="threat weather w${sea.wx}"><div class="threat-row"><span>Weather report${hurricaneSeason() ? '<small>Hurricane season</small>' : ''}</span><b>${WEATHER[sea.wx].name}</b></div>
+        <p class="threat-note">${WEATHER[sea.wx].desc} ${shipWeather()}</p></div>
       <h3>Readiness</h3>
       <ul class="checks">${checks.map(([ok, t]) => `<li class="${ok ? 'ok' : 'warn'}">${ok ? '✔' : '⚠'} ${t}</li>`).join('')}</ul>
       <p class="hint">${S.known.length} of ${TW.PORTS.length} ports charted.</p>
@@ -1094,6 +1094,12 @@
   // swings either way, and the swing changes how often pirates find you. Weather follows
   // the season: August to October is hurricane season.
   const ACTIVITY = ['Quiet', 'Some sightings', 'Dangerous', 'Deadly'];
+  const ACTIVITY_DESC = [
+    'No black flags reported this week. The sea lanes are as safe as they get.',
+    'A few strange sails on the horizon. Keep a weather eye open.',
+    'Pirates are prowling the lanes. Sail with your guns run out.',
+    'Pirate fleets are hunting these waters. Sail well armed, or not at all.',
+  ];
   const SWING = [[-2, 0.15, 0.55], [-1, 0.3, 0.75], [0, 0.35, 1], [1, 0.15, 1.45], [2, 0.05, 1.9]];   // offset, weight, encounter odds (averages about 1)
   const WEATHER = [
     { name: 'Fair', storm: 0.35, desc: 'Clear skies and steady trade winds. A storm is unlikely.' },
