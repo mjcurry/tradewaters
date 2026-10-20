@@ -247,7 +247,7 @@
     S.cash -= take;
     S.debt = Math.max(0, S.debt + fee - take);
     if (!S.debt) S.loanDue = 0;
-    log(`Debt collectors seized ${fmt(take)} gold on the quay in ${port().name}.`);
+    log(`Debt collectors seized ${fmt(take)} gold on the wharf in ${port().name}.`);
     return { take, fee, left: S.debt };
   }
 
@@ -605,7 +605,7 @@
           </div>
           <div class="keeper-name">${ch.name}<small>${ch.title}</small></div>
           <div class="speech"><p class="speech-text"></p></div>
-          <button class="ghost back" data-act="to-city">← Back to the quay</button>
+          <button class="ghost back" data-act="to-city">← Back to the wharf</button>
         </aside>
         <section class="port-main panel" id="port-main"></section>
         <aside class="port-side">${shipCard()}${logCard()}</aside>
@@ -616,7 +616,7 @@
 
   function renderHarbor(el) {
     const d = shipDef(), c = talkContext();
-    const sea = seaAt(), odds = stormOdds(), m = mods();
+    const sea = seaAt(), m = mods();
     const checks = [
       [S.ship.hull >= d.hull * 0.7, `Hull ${S.ship.hull}/${d.hull}`],
       [S.ship.guns - S.ship.broken >= Math.min(d.guns, 2 + c.threat * 3), `${S.ship.guns - S.ship.broken} working cannons`],
@@ -626,7 +626,8 @@
     el.innerHTML = `<h2>Harbor Office</h2>
       <div class="threat t${sea.act}"><span>Pirate activity</span><b>${ACTIVITY[sea.act]}</b></div>
       <div class="threat weather w${sea.wx}"><span>Weather report${hurricaneSeason() ? '<small>Hurricane season</small>' : ''}</span>
-        <b>${WEATHER[sea.wx].name}<small>Storm risk ${odds ? fmtOdds(odds) : 'none'}${m.storm === 0 ? ' with your compass' : m.storm !== 1 ? ' with your ship' : ''}</small></b></div>
+        <b>${WEATHER[sea.wx].name}</b></div>
+      <p class="hint weather-note">${WEATHER[sea.wx].desc} ${shipWeather(m)}</p>
       <h3>Readiness</h3>
       <ul class="checks">${checks.map(([ok, t]) => `<li class="${ok ? 'ok' : 'warn'}">${ok ? '✔' : '⚠'} ${t}</li>`).join('')}</ul>
       <p class="hint">${S.known.length} of ${TW.PORTS.length} ports charted.</p>
@@ -1072,7 +1073,7 @@
     const d = shipDef();
     const warn = [];
     if (S.ship.hull < d.hull * 0.5) warn.push('Your hull is badly damaged.');
-    if (stormOdds() >= 1.4) warn.push(`${WEATHER[seaAt().wx].name} weather: storms are ${fmtOdds(stormOdds())} as likely as usual.`);
+    if (stormOdds() >= 1.4) warn.push(`${WEATHER[seaAt().wx].name} weather: ${WEATHER[seaAt().wx].desc.split('. ')[1]}`);
     if (!S.ship.guns) warn.push('You carry no cannons. Pirates will find you easy prey.');
     if (contracts().some(c => c.risky && c.to === p.id)) warn.push(`Word of your job for ${p.name} has spread. Pirates are watching for you.`);
     if (isHostile(p.id)) warn.push(`${hostile()[p.id].captain}'s pirates hold ${p.name}. You'll have to fight past its fort to dock.`);
@@ -1091,10 +1092,17 @@
   // the season: August to October is hurricane season.
   const ACTIVITY = ['Quiet', 'Some sightings', 'Dangerous', 'Deadly'];
   const SWING = [[-2, 0.15, 0.55], [-1, 0.3, 0.75], [0, 0.35, 1], [1, 0.15, 1.45], [2, 0.05, 1.9]];   // offset, weight, encounter odds (averages about 1)
-  const WEATHER = [{ name: 'Fair', storm: 0.35 }, { name: 'Changeable', storm: 0.8 }, { name: 'Squally', storm: 1.4 }, { name: 'Stormy', storm: 2.2 }];
+  const WEATHER = [
+    { name: 'Fair', storm: 0.35, desc: 'Clear skies and steady trade winds. A storm is unlikely.' },
+    { name: 'Overcast', storm: 0.8, desc: 'Grey skies, but nothing brewing. Little chance of a storm.' },
+    { name: 'Squally', storm: 1.4, desc: 'Squalls on the horizon. A storm is likelier than usual.' },
+    { name: 'Stormy', storm: 2.2, desc: 'A gale is building. Sail now and you may well meet a storm.' },
+  ];
+  // A word on what your own ship does to those odds (charms and fittings).
+  const shipWeather = m => m.storm === 0 ? 'Your Ultimate Compass will steer you clear of any storm.'
+    : m.storm < 1 ? 'Your ship\u2019s charms make a storm less likely.' : m.storm > 1 ? 'Your light trim makes a storm more likely.' : '';
   const pickWeighted = w => { let k = Math.random() * w.reduce((a, b) => a + b, 0), i = 0; while ((k -= w[i]) > 0 && i < w.length - 1) i++; return i; };
   const hurricaneSeason = () => monthIndex(S.day) % 12 >= 7 && monthIndex(S.day) % 12 <= 9;
-  const fmtOdds = x => '\u00d7' + (Math.round(x * 10) / 10).toFixed(1).replace(/\.0$/, '');
   const dangerTier = () => { const D = dangerLevel(); return D < 6 ? 0 : D < 14 ? 1 : D < 26 ? 2 : 3; };
   function seaAt(id = S.port) {
     const wk = Math.floor(S.day / 7), sea = S.sea || (S.sea = {});
@@ -1397,7 +1405,7 @@
       log(`Bankrupt in ${haven.name}, with no ship and no gold to buy one.`);
       TW.sfx('bad');
       return modal(`<h2>Bankrupt</h2>
-        <p>You walk the quay at ${haven.name} with ${gold(funds)} to your name. The cheapest hull in the harbor costs ${gold(cheapestShip())}, and no lender will stake a captain without a ship.</p>
+        <p>You walk the wharf at ${haven.name} with ${gold(funds)} to your name. The cheapest hull in the harbor costs ${gold(cheapestShip())}, and no lender will stake a captain without a ship.</p>
         <p class="bad">Your days as a merchant captain are over.</p>`, [['The end of the road', () => go('end'), 'big']], 'wreck');
     }
     const ships = TW.SHIPS.filter(sh => TW.goodUnlocked(S, sh) && sh.price <= funds);
@@ -1569,7 +1577,7 @@
     const collected = collectDebt();
     go('port', {}, portOrigin(dest));
     const showDebt = () => collected && modal(`<h2>Debt collectors!</h2>
-      <p>Hard-faced men are waiting on the quay with your overdue note. They take <b>${gold(collected.take)}</b>, including a ${fmt(collected.fee)} gold collection fee.</p>
+      <p>Hard-faced men are waiting on the wharf with your overdue note. They take <b>${gold(collected.take)}</b>, including a ${fmt(collected.fee)} gold collection fee.</p>
       ${collected.left ? `<p class="bad">You still owe ${gold(collected.left)}, and it keeps growing at ${overduePct()}% a month.</p>` : '<p>Your debt is settled.</p>'}`, [['Grumble and pay', null, 'big']]);
     if (delivered.length) modal(`<h2>Contracts in ${port().name}</h2><ul class="checks">${delivered.join('')}</ul>`, [['Excellent', showDebt, 'big']]);
     else showDebt();
@@ -1679,7 +1687,7 @@
     'help': () => {
       // Each section pairs a gameplay screenshot with a short tip; click a picture to enlarge it.
       const rows = [
-        ['city', 'Explore the port', 'Every port has its own harbor. Click a building on the quay to step inside and meet its keeper. They have opinions about your ship, your debts and your cargo.'],
+        ['city', 'Explore the port', 'Every port has its own harbor. Click a building on the wharf to step inside and meet its keeper. They have opinions about your ship, your debts and your cargo.'],
         ['market', 'Trade', 'Each port makes some goods cheaply and pays dearly for others. Buy where prices are <span class="cheap">green</span> and sell where they are <span class="dear">red</span>. Big trades move the price, and ports remember: run the same route again and again and its margin shrinks for weeks, so rotate your routes. Tags beside a good (shortage, glut, contraband) explain themselves: hover or tap them.'],
         ['map', 'Sail', 'Visit the Harbor Office or press Set Sail, then pick a port on the chart. Hover a port to see the prices you saw there last. Harbor Offices post freight contracts that beat market prices if you make the deadline, and taverns whisper of smuggling jobs. Each nation bans some goods, and its navy patrols the approaches.'],
         ['combat', 'Survive', 'Pirates and storms prowl the sea lanes. In battle, click an enemy to target it. Your cannons fire on their own. Click a special shot to load it into the next cannon to fire: chain shot, fire pots and powder kegs can turn the tide. Outgunned? Flee. If your ship sinks you are carried to the nearest home port with a shipyard and must buy another from your purse and bank; if you can\u2019t, you are bankrupt and the game is over. Now and then pirates seize a port and close its harbor: storm its fort and batteries to free it, for gold and gems.'],

@@ -60,7 +60,7 @@
   const REASONS = {
     cargo: ['{to} is short of {good}, and prices there are climbing.', 'A wedding feast in {to} needs {good}, and the bride’s family will not wait.',
       'The garrison at {to} was promised {good} months ago.', 'Settling an old debt with a trading house in {to}.',
-      'A rival bought up every crate in {to}. Beat him to the quay.', 'A new warehouse in {to} opens soon and its shelves are bare.',
+      'A rival bought up every crate in {to}. Beat him to the wharf.', 'A new warehouse in {to} opens soon and its shelves are bare.',
       'The governor of {to} is hosting a feast and wants {good} on the tables.'],
     courier: ['Sealed orders for the garrison commander at {to}.', 'A love letter. Do not read it. Please.', 'Bills of exchange the bank in {to} must have before month’s end.',
       'News of a treaty that will move prices in {to}.', 'A pardon for a man due to hang in {to}. Hurry.', 'Plans for the new fortifications at {to}. Guard them.'],
