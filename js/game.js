@@ -23,6 +23,9 @@
   // Touch screens: tap wording, bigger hit areas on the chart.
   const touch = window.matchMedia && matchMedia('(pointer: coarse)').matches;
   const tapWord = touch ? 'Tap' : 'Click';
+  // iPhone Safari can't go full screen from a web page; added to the Home Screen it can.
+  const iOS = /iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const installed = () => navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches);
   // Net worth counts cargo at what you paid, so buying goods doesn't look like losing money.
   const worth = (s = S) => s.cash + s.bank - s.debt +
     Object.values(s.ship.cargo).reduce((a, c) => a + c.qty * c.cost, 0);
@@ -1737,9 +1740,11 @@
       });
     },
     'menu': () => modal(`<h2>Menu</h2><p>Your game saves automatically each time you reach port.</p>
-      <p>Difficulty: <b>${diffName()}</b></p>`,
+      <p>Difficulty: <b>${diffName()}</b></p>
+      ${iOS && !installed() ? '<p class="hint">To play full screen, tap Safari\u2019s Share button, choose <b>Add to Home Screen</b>, and open Tradewaters from its icon. In Safari itself, turn the phone sideways and swipe up to hide the bars.</p>' : ''}`,
       [['Resume', null, 'big'], ...(document.fullscreenEnabled ? [[document.fullscreenElement ? 'Exit full screen' : 'Full screen', toggleFullscreen, 'ghost']] : []),
        ['Change difficulty', () => chooseDifficulty(), 'ghost'], ['Retire and see your score', () => go('end'), 'ghost'], ['Quit to title', () => { save(); go('title'); }, 'ghost']]),
+    'dismiss-fs': () => { try { localStorage.setItem('tradewaters-fs-ok', '1'); } catch (e) {} fsHint(); },
     'dismiss-rotate': () => { document.documentElement.classList.add('rotate-ok'); try { localStorage.setItem('tradewaters-rotate-ok', '1'); } catch (e) {} },
     'toggle-sfx': () => { TW.toggleAudio('sfx'); hud(); },
     'toggle-music': () => { TW.toggleAudio('music'); hud(); },
@@ -1945,6 +1950,23 @@
     }
   }
 
+  // Sideways in a browser tab on a phone: the page is sized to the bars-hidden screen (see
+  // style.css), so a swipe up tucks the browser's bars away. Say so until the player swipes,
+  // and on iPhone point to Add to Home Screen for true full screen.
+  const sideways = window.matchMedia && matchMedia('(orientation: landscape) and (max-height: 540px)');
+  function fsHint() {
+    const el = $('#fs-hint'); if (!el) return;
+    let off = false; try { off = !!localStorage.getItem('tradewaters-fs-ok'); } catch (e) {}
+    const show = touch && sideways && sideways.matches && !installed() && !document.fullscreenElement && !off
+      && !!document.documentElement.dataset.scene && window.scrollY < 4;
+    if (show) el.querySelector('span').innerHTML = iOS
+      ? 'Swipe up to hide Safari\u2019s bars. For full screen: Share \u2192 <b>Add to Home Screen</b>.'
+      : `Swipe up to hide the browser bar${document.fullscreenEnabled ? ', or \u2630 \u2192 <b>Full screen</b>' : ''}.`;
+    el.hidden = !show;
+  }
+  ['scroll', 'resize', 'orientationchange'].forEach(ev => window.addEventListener(ev, fsHint, { passive: true }));
+  document.addEventListener('fullscreenchange', fsHint);
+
   // Tag <html> while the wharf, chart or a battle is showing, so a phone held upright can be
   // nudged to turn sideways (see #rotate-hint in style.css).
   function watchScene() {
@@ -1953,6 +1975,7 @@
     const sync = () => {
       const scene = el.querySelector('.city-scene') ? 'port' : /screen-(map|combat)/.test(el.className) ? RegExp.$1 : '';
       if (scene) root.dataset.scene = scene; else delete root.dataset.scene;
+      fsHint();
     };
     new MutationObserver(sync).observe(el, { attributes: true, attributeFilter: ['class'], childList: true });
     sync();
