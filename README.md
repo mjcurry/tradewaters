@@ -33,15 +33,15 @@ It keeps the core of the classics: **buy low, sell high, and survive the pirates
 
 <table>
   <tr>
-    <td width="50%"><img src="assets/img/help/city.jpg" alt="Havana city view with clickable buildings on the quay"><br><sub><b>Explore the port.</b> Each of the 20 ports has its own harbor. Click a building to step inside.</sub></td>
-    <td width="50%"><img src="assets/img/help/market.jpg" alt="Marketplace with Marisol Quintero, the merchant"><br><sub><b>Trade.</b> Buy where prices are green, sell where they're red, and listen to the keepers.</sub></td>
+    <td width="50%"><img src="assets/img/help/city.jpg" alt="Havana city view with clickable buildings on the quay"><br><sub><b>Explore the port.</b> Each of the 20 ports has its own harbor and townsfolk. Click a building to step inside.</sub></td>
+    <td width="50%"><img src="assets/img/help/market.jpg" alt="Marketplace with Candelaria Herrera, the merchant"><br><sub><b>Trade.</b> Buy where prices are green, sell where they're red, and listen to the keepers.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="assets/img/help/map.jpg" alt="Sea chart of the Caribbean with a price tooltip"><br><sub><b>Sail.</b> Chart a course between real Caribbean ports and check the prices you saw last time.</sub></td>
-    <td width="50%"><img src="assets/img/help/combat.jpg" alt="Real-time naval battle against two pirate ships"><br><sub><b>Survive.</b> Real-time cannon battles, special ammo, and a well-timed retreat.</sub></td>
+    <td width="50%"><img src="assets/img/help/map.jpg" alt="Parchment sea chart of the Caribbean with a price tooltip for a pirate-held port"><br><sub><b>Sail.</b> Chart a course between real Caribbean ports, check the prices you saw last time, and watch for ports seized by pirates.</sub></td>
+    <td width="50%"><img src="assets/img/help/combat.jpg" alt="Real-time naval battle: a barque firing chain shot at three pirate brigs"><br><sub><b>Survive.</b> Real-time cannon battles, chain shot, fire pots and powder kegs, and a well-timed retreat.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="assets/img/help/shipyard.jpg" alt="Shipyard with Ingrid Hallvard and ships for sale"><br><sub><b>Grow.</b> Upgrade from a sloop to a man-o-war and unlock richer goods.</sub></td>
+    <td width="50%"><img src="assets/img/help/ship.jpg" alt="Ship and captain sheet with specifications, manifest, record and the seven ships of the Caribbean"><br><sub><b>Grow.</b> Upgrade from a sloop to a man-o-war, fit out your ship and unlock richer goods.</sub></td>
     <td width="50%" valign="middle">
       <b>How a voyage goes</b>
       <ol>
@@ -51,6 +51,10 @@ It keeps the core of the classics: **buy low, sell high, and survive the pirates
         <li>Sell high, upgrade your ship, repeat</li>
       </ol>
     </td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/readme/harbor.jpg" alt="Harbor Office freight board with Lieutenant Marie-Josèphe Bastide and a pirates-watching contract"><br><sub><b>Take contracts.</b> Freight jobs beat market prices if you make the deadline. Some come with pirates watching.</sub></td>
+    <td width="50%"><img src="docs/readme/contraband.jpg" alt="Tooltip explaining that arms are contraband in French ports"><br><sub><b>Run contraband.</b> Each nation bans some goods. Sell them on the black market, but mind the navy patrols.</sub></td>
   </tr>
 </table>
 

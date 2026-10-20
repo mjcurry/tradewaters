@@ -1612,11 +1612,11 @@
         ['market', 'Trade', 'Each port makes some goods cheaply and pays dearly for others. Buy where prices are <span class="cheap">green</span> and sell where they are <span class="dear">red</span>. Big trades move the price, and ports remember: run the same route again and again and its margin shrinks for weeks, so rotate your routes. Tags beside a good (shortage, glut, contraband) explain themselves: hover or tap them.'],
         ['map', 'Sail', 'Visit the Harbor Office or press Set Sail, then pick a port on the chart. Hover a port to see the prices you saw there last. Harbor Offices post freight contracts that beat market prices if you make the deadline, and taverns whisper of smuggling jobs. Each nation bans some goods, and its navy patrols the approaches.'],
         ['combat', 'Survive', 'Pirates and storms prowl the sea lanes. In battle, click an enemy to target it. Your cannons fire on their own. Click a special shot to load it into the next cannon to fire: chain shot, fire pots and powder kegs can turn the tide. Outgunned? Flee. Now and then pirates seize a port and close its harbor: storm its fort and batteries to free it, for gold and gems.'],
-        ['shipyard', 'Grow', 'Rising net worth (cash + bank + cargo \u2212 debt) unlocks richer goods, new charts and bigger ships. Cannons cost hold space, so balance firepower against cargo. Every day at sea costs wages and provisions, and the moneylender charges 10% a month with loans due in 90 days. Shipyards sell fittings such as faster-firing cannons and bigger holds, and tavern traders sell curiosities, if you trust them.'],
+        ['ship', 'Grow', 'Rising net worth (cash + bank + cargo \u2212 debt) unlocks richer goods, new charts and bigger ships. Cannons cost hold space, so balance firepower against cargo. Every day at sea costs wages and provisions, and the moneylender charges 10% a month with loans due in 90 days. Shipyards sell fittings such as faster-firing cannons and bigger holds, and tavern traders sell curiosities, if you trust them.'],
       ];
       modal(`<h2>How to Play</h2>${rows.map(([img, title, text]) => `
         <div class="help-row">
-          <button class="help-shot" title="Click to enlarge"><img src="assets/img/help/${img}.jpg" alt="${title}" loading="lazy"></button>
+          <button class="help-shot" title="Click to enlarge"><img src="assets/img/help/${img}.jpg?r=2" alt="${title}" loading="lazy"></button>
           <div><h3>${title}</h3><p>${text}</p></div>
         </div>`).join('')}`, [['Got it', null, 'big']], 'wide');
       $('#modal').querySelectorAll('.help-shot').forEach(b => {
