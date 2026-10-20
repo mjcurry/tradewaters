@@ -1096,9 +1096,9 @@
   const ACTIVITY = ['Quiet', 'Some sightings', 'Dangerous', 'Deadly'];
   const ACTIVITY_DESC = [
     'No black flags reported this week. The sea lanes are as safe as they get.',
-    'A few strange sails on the horizon. Keep a weather eye open.',
-    'Pirates are prowling the lanes. Sail with your guns run out.',
-    'Pirate fleets are hunting these waters. Sail well armed, or not at all.',
+    'A few strange sails on the horizon. Keep a sharp eye open.',
+    'Pirates are prowling the lanes. Sail with your guns out and ready.',
+    'Pirate fleets are hunting these waters. Sail well armed, or don\u2019t sail at all.',
   ];
   const SWING = [[-2, 0.15, 0.55], [-1, 0.3, 0.75], [0, 0.35, 1], [1, 0.15, 1.45], [2, 0.05, 1.9]];   // offset, weight, encounter odds (averages about 1)
   const WEATHER = [
