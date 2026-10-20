@@ -490,8 +490,8 @@
     }
   };
 
-  TW.portAt = function (x, y) {
-    let best = null, bd = 18;
+  TW.portAt = function (x, y, radius = 18) {   // radius in map units; touch screens pass a larger one
+    let best = null, bd = radius;
     for (const p of TW.PORTS) { const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = p; } }
     return best;
   };

@@ -1,0 +1,16 @@
+{
+  "name": "Tradewaters",
+  "short_name": "Tradewaters",
+  "description": "A Caribbean trading and piracy game. Buy low, sell high, outrun the pirates.",
+  "start_url": "../../",
+  "scope": "../../",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#13324a",
+  "theme_color": "#13324a",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

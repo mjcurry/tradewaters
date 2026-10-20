@@ -20,6 +20,9 @@
   let view = { screen: 'title', tab: 'market' };
 
   // ---------- helpers ----------
+  // Touch screens: tap wording, bigger hit areas on the chart.
+  const touch = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+  const tapWord = touch ? 'Tap' : 'Click';
   // Net worth counts cargo at what you paid, so buying goods doesn't look like losing money.
   const worth = (s = S) => s.cash + s.bank - s.debt +
     Object.values(s.ship.cargo).reduce((a, c) => a + c.qty * c.cost, 0);
@@ -1001,7 +1004,7 @@
       <div class="map-wrap"><canvas id="map" width="${TW.MAP.w * 2}" height="${TW.MAP.h * 2}"></canvas>
         <div id="map-tip" class="map-tip" hidden></div></div>
       <div class="map-bar">
-        <span id="map-status">Choose a destination. Hover a port to see what you last saw there.</span>
+        <span id="map-status">${touch ? 'Choose a destination: tap a port to plan the voyage.' : 'Choose a destination. Hover a port to see what you last saw there.'}</span>
         <button class="ghost" data-act="back-port" id="btn-back">Stay in port</button>
       </div>`;
     const c = $('#map'), ctx = c.getContext('2d');
@@ -1018,7 +1021,8 @@
     c.onmouseleave = () => { mapState.hover = null; $('#map-tip').hidden = true; };
     c.onclick = ev => {
       if (mapState.voyage) return;
-      const p = TW.portAt(...toMap(ev));
+      // A fingertip needs about 24 px of slack; the chart may be drawn much smaller than its 1185 units.
+      const p = TW.portAt(...toMap(ev), touch ? Math.max(18, 24 * TW.MAP.w / c.getBoundingClientRect().width) : 18);
       if (!p) return;
       if (!S.known.includes(p.id)) return toast('That port is uncharted. Buy a chart in a tavern, or grow your fame.', 'bad');
       if (p.id === S.port) return go('port');
@@ -1338,7 +1342,7 @@
     el.className = 'screen-combat';
     el.innerHTML = `<div class="combat-wrap"><canvas id="combat" width="960" height="540"></canvas></div>
       <div class="combat-bar">
-        <span class="hint">${fleet.port ? 'Click the fort, a battery or a ship to target it.' : 'Click an enemy ship to target it.'} Cannons fire on their own; click a special shot to load it into the next gun.</span>
+        <span class="hint">${fleet.port ? `${tapWord} the fort, a battery or a ship to target it.` : `${tapWord} an enemy ship to target it.`} Cannons fire on their own; ${tapWord.toLowerCase()} a special shot to load it into the next gun.</span>
         ${TW.AMMO.map(a => `<button id="ammo-${a.id}" data-act="special" data-ammo="${a.id}" title="${a.desc}">${a.name} <span class="n">0</span></button>`).join('')}
         <button id="btn-flee" class="ghost" data-act="flee">Flee</button>
       </div>`;
@@ -1640,6 +1644,15 @@
     };
   }
 
+  // Full screen where the browser allows it (Android, desktop; not iPhone Safari, where adding
+  // the game to the home screen does the same). On a phone it also tries to hold landscape.
+  function toggleFullscreen() {
+    if (document.fullscreenElement) return document.exitFullscreen().catch(() => {});
+    document.documentElement.requestFullscreen({ navigationUI: 'hide' })
+      .then(() => touch && screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}))
+      .catch(() => {});
+  }
+
   // Pick a new difficulty mid-voyage; it takes effect straight away.
   function chooseDifficulty() {
     modal(`<h2>Difficulty</h2><p class="hint">Takes effect at once. Your score is kept separately for each difficulty.</p>
@@ -1725,7 +1738,9 @@
     },
     'menu': () => modal(`<h2>Menu</h2><p>Your game saves automatically each time you reach port.</p>
       <p>Difficulty: <b>${diffName()}</b></p>`,
-      [['Resume', null, 'big'], ['Change difficulty', () => chooseDifficulty(), 'ghost'], ['Retire and see your score', () => go('end'), 'ghost'], ['Quit to title', () => { save(); go('title'); }, 'ghost']]),
+      [['Resume', null, 'big'], ...(document.fullscreenEnabled ? [[document.fullscreenElement ? 'Exit full screen' : 'Full screen', toggleFullscreen, 'ghost']] : []),
+       ['Change difficulty', () => chooseDifficulty(), 'ghost'], ['Retire and see your score', () => go('end'), 'ghost'], ['Quit to title', () => { save(); go('title'); }, 'ghost']]),
+    'dismiss-rotate': () => { document.documentElement.classList.add('rotate-ok'); try { localStorage.setItem('tradewaters-rotate-ok', '1'); } catch (e) {} },
     'toggle-sfx': () => { TW.toggleAudio('sfx'); hud(); },
     'toggle-music': () => { TW.toggleAudio('music'); hud(); },
     'enter': (b) => {
@@ -1930,7 +1945,21 @@
     }
   }
 
+  // Tag <html> while the wharf, chart or a battle is showing, so a phone held upright can be
+  // nudged to turn sideways (see #rotate-hint in style.css).
+  function watchScene() {
+    const el = $('#screen'), root = document.documentElement;
+    try { if (localStorage.getItem('tradewaters-rotate-ok')) root.classList.add('rotate-ok'); } catch (e) {}
+    const sync = () => {
+      const scene = el.querySelector('.city-scene') ? 'port' : /screen-(map|combat)/.test(el.className) ? RegExp.$1 : '';
+      if (scene) root.dataset.scene = scene; else delete root.dataset.scene;
+    };
+    new MutationObserver(sync).observe(el, { attributes: true, attributeFilter: ['class'], childList: true });
+    sync();
+  }
+
   TW.boot = async function () {
+    watchScene();
     // Canvas text (map labels, combat) only uses web fonts that have already loaded.
     if (document.fonts) await Promise.race([
       Promise.all(['16px "Pirata One"', '16px "IM Fell English SC"', '16px Alegreya', 'bold 16px Alegreya']
