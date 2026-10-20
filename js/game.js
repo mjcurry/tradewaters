@@ -679,6 +679,7 @@
     const [lo] = TW.RANKS[rankIdx], next = TW.RANKS[rankIdx + 1];
     const st = S.stats;
     modal(`
+      <div class="modal-x-bar"><button class="modal-x" data-i="0" aria-label="Close" title="Close">\u00d7</button></div>
       <div class="ship-hero"><canvas width="1200" height="400" data-hero></canvas>
         <div class="ship-title"><label>The</label><input id="ship-name" maxlength="28" value="${esc(shipName())}" aria-label="Ship name" title="Click to rename your ship">
           <small>${d.name} · Captain ${esc(S.name)}, ${rankOf(w)}</small></div></div>

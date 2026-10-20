@@ -511,6 +511,13 @@ button.link { background: none; border: 0; padding: 0; font: inherit; color: inh
 button.link:hover { color: var(--teal); }
 .modal-box.ship-sheet { width: min(72rem, 100%); padding: 0; }
 .ship-sheet > .row { padding: 0 1.4rem 1.2rem; }
+/* A close button pinned to the top-right corner of a scrolling modal: the bar is sticky and
+   has no height, so the button stays in view without pushing the content down. */
+.modal-x-bar { position: sticky; top: 0; height: 0; z-index: 3; }
+.modal-x { position: absolute; top: 0.7rem; right: 0.7rem; width: 2.4rem; height: 2.4rem; padding: 0; border-radius: 50%;
+  background: rgba(19,50,74,0.85); color: var(--cream); font-size: 1.6rem; line-height: 1; display: grid; place-items: center;
+  box-shadow: 0 0.15rem 0.5rem rgba(8,24,36,0.35); }
+.modal-x:hover { background: var(--navy); }
 .ship-hero { position: relative; }
 .ship-hero canvas { display: block; width: 100%; height: auto; aspect-ratio: 3 / 1; border-radius: var(--radius) var(--radius) 0 0; }
 .ship-title { position: absolute; left: 1.4rem; top: 1rem; display: flex; flex-direction: column; color: var(--navy); }
