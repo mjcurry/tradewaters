@@ -687,7 +687,7 @@
           ${meter('Speed', d.speed, best('speed'), `${d.speed}`)}
           ${meter('Firepower', firepower({ guns: S.ship.guns - S.ship.broken, reload: d.reload }), firepower(TW.SHIPS[TW.SHIPS.length - 1]), `${S.ship.guns - S.ship.broken} guns`)}
           <div class="kv"><span>Gun deck</span><b>${S.ship.guns} of ${d.guns} mounted${S.ship.broken ? `, <i class="bad">${S.ship.broken} broken</i>` : ''}</b></div>
-          <div class="kv"><span>Reload</span><b>${d.reload}s per gun</b></div>
+          <div class="kv"><span>Reload</span><b>${(d.reload * TW.Combat.PACE).toFixed(1)}s per gun</b></div>
           <div class="kv"><span>Special shot</span><b>⛓ ${S.ammo.chain} · 🔥 ${S.ammo.fire} · 💥 ${S.ammo.keg}</b></div>
           <div class="kv"><span>Wages &amp; provisions</span><b>${fmt(TW.upkeep(d, S.ship.guns))} g/day</b></div>
           <div class="kv"><span>Trade-in value</span><b>${gold(tradeInValue())}</b></div>
@@ -766,20 +766,20 @@
       // Goods above your standing can't be bought yet, but anything you've captured can be sold.
       const locked = !TW.goodUnlocked(S, g);
       if (locked && !held) return `<tr class="locked"><td><span class="emoji">${g.icon}</span> ${g.name}</td><td colspan="5">Unlocks at ${gold(g.unlock)} net worth</td></tr>`;
-      const noBuy = locked || !stockOf(e) || TW.banned(S.port, g.id);
+      const banned = TW.banned(S.port, g.id), noBuy = locked || banned || !stockOf(e);
       const buy = TW.unitBuy(e), sell = TW.unitSell(e), stock = stockOf(e);
       const avg = S.ship.cargo[g.id]?.cost;
       const pl = held && avg ? Math.round((sell - avg) / avg * 100) : null;
       return `<tr data-good="${g.id}">
-        <td class="good"><span class="gname">${g.icon} <b>${g.name}</b></span>${e.kind ? `<span class="tagx ${e.kind}" ${tip(eventTip(e.kind, g))}>${e.kind}</span>` : ''}${TW.banned(S.port, g.id) ? `<span class="tagx contraband" ${tip(contrabandTip(g))}>contraband</span>` : ''}${locked ? `<span class="tagx sellonly" ${tip(`<b>Sell only.</b> These are captured goods. Merchants here will buy them from you, but won't sell ${g.name.toLowerCase()} to you until your net worth reaches ${gold(g.unlock)}.`)}>sell only</span>` : ''}</td>
+        <td class="good"><span class="gname">${g.icon} <b>${g.name}</b></span>${e.kind ? `<span class="tagx ${e.kind}" ${tip(eventTip(e.kind, g))}>${e.kind}</span>` : ''}${banned ? `<span class="tagx contraband" ${tip(contrabandTip(g))}>contraband</span>` : ''}${locked ? `<span class="tagx sellonly" ${tip(`<b>Sell only.</b> These are captured goods. Merchants here will buy them from you, but won't sell ${g.name.toLowerCase()} to you until your net worth reaches ${gold(g.unlock)}.`)}>sell only</span>` : ''}</td>
         <td class="${priceClass(g, buy)}">${fmt(buy)}</td>
         <td class="${priceClass(g, sell)}">${fmt(sell)}</td>
-        <td>${stock || '<i class="muted">none</i>'}</td>
+        <td>${banned ? '<span class="muted">-</span>' : stock || '<i class="muted">none</i>'}</td>
         <td>${!held ? '<span class="muted">-</span>' : pl === null ? `${held} <small class="up">free</small>` :
           `${held} <small class="${pl >= 0 ? 'up' : 'down'}">${pl >= 0 ? '+' : ''}${pl}%</small>`}</td>
         <td class="trade">
           <input type="number" min="0" value="" placeholder="qty" data-qty="${g.id}">
-          <button data-act="max-buy" data-good="${g.id}" title="Fill with the most you can buy" ${locked ? 'disabled' : ''}>Max</button>
+          <button data-act="max-buy" data-good="${g.id}" title="Fill with the most you can buy" ${locked || banned ? 'disabled' : ''}>Max</button>
           <button class="buy" data-act="buy" data-good="${g.id}" ${noBuy ? 'disabled' : ''}><span>Buy</span><small></small></button>
           <button data-act="all-sell" data-good="${g.id}" ${!held ? 'disabled' : ''} title="Fill with all you hold">All</button>
           <button class="sell" data-act="sell" data-good="${g.id}" ${!held ? 'disabled' : ''}><span>Sell</span><small></small></button>

@@ -43,16 +43,16 @@
     boom: ['boom'], sink: ['sink'], coins: ['coins'], click: ['click'], bell: ['bell'], storm: ['storm'], bad: ['bad'],
     door: ['door'], map: ['map'], anchor: ['anchor'], hammer: ['hammer'], mug: ['mug'], crate: ['crate'],
     quill: ['quill'], cheer: ['cheer'],
-    load: ['load'], chainShot: ['chain-shot'], fuse: ['fuse'], shipwreck: ['shipwreck'], defeat: ['defeat'],
-    // sail and firePot deliberately have no samples: they use the original synthesized sounds.
+    load: ['load'], chainShot: ['chain-shot'], fuse: ['fuse'], shipwreck: ['shipwreck'], defeat: ['defeat'], sail: ['ships-bell-two-rings'],
+    // firePot deliberately has no sample: it uses the original synthesized sound.
   };
   const LEVEL = { cannon: 0.75, cannonFar: 0.45, hit: 0.8, hitFar: 0.45, splash: 0.35, boom: 0.9, sink: 0.7, coins: 0.7, click: 0.35,
     bell: 0.55, storm: 0.8, bad: 0.6, door: 0.6, map: 0.7, anchor: 0.6, hammer: 0.6, mug: 0.6, crate: 0.6, quill: 0.6, cheer: 0.6,
-    load: 0.7, chainShot: 0.8, fuse: 0.45, shipwreck: 0.85, defeat: 0.6 };   // the fuse is all hiss; keep it under the guns
+    load: 0.7, chainShot: 0.8, fuse: 0.45, shipwreck: 0.85, defeat: 0.6, sail: 0.6 };   // the fuse is all hiss; keep it under the guns
   const VARY = new Set(['cannon', 'cannonFar', 'hit', 'hitFar', 'splash', 'boom', 'coins', 'click', 'crate']);  // pitch-jitter these
   const MAX_VOICES = { cannon: 5, cannonFar: 4, hit: 3, hitFar: 3, splash: 3 };
   const buffers = {}, voices = {};
-  const SFX_REV = 4;   // bump when the files are replaced: they're cached for a week
+  const SFX_REV = 5;   // bump when the files are replaced: they're cached for a week
   TW.loadSfx = function () {
     const a = ctx(); if (!a || !window.fetch) return Promise.resolve();
     const files = new Set([...Object.values(SAMPLES).flat(), 'amb-port', 'amb-sea']);
@@ -123,7 +123,7 @@
       case 'load': noise(0.15, 300, 0.4, 2); setTimeout(() => noise(0.12, 250, 0.4, 2), 160); break;
       case 'chainShot': noise(0.5, 600, 0.9, 3); tone(900, 0.6, 'sawtooth', 0.05, -500); break;
       case 'firePot': noise(1.0, 400, 1, 2); tone(50, 0.6, 'sine', 0.5, -20); break;   // the original special-shot explosion
-      case 'sail': tone(880, 1.2, 'sine', 0.15); tone(1320, 0.8, 'sine', 0.06); break;   // the original synthesized ship's bell
+      case 'sail': tone(880, 1.2, 'sine', 0.15); tone(1320, 0.8, 'sine', 0.06); break;   // synthesized ship's bell, if the sample hasn't loaded
       case 'fuse': noise(0.8, 5000, 0.15, 0.4); break;
       case 'shipwreck': noise(0.6, 900, 0.7, 2); setTimeout(() => { noise(3.5, 260, 0.6, 0.5); tone(55, 3, 'sine', 0.25, -25); }, 350); break;
       case 'defeat': [0, 1400, 2800].forEach(d => setTimeout(() => { tone(196, 2.4, 'sine', 0.14); tone(294, 1.6, 'sine', 0.05); }, d)); break;   // a slow tolling bell

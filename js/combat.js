@@ -157,10 +157,15 @@
   let S = null;  // active combat state
   const LEDGE_Y = 258;   // where port defenses stand on the siege background's headland
 
+  // Battle pace: every gun on both sides reloads this much slower than its listed rate, and
+  // shot flies for FLIGHT seconds, so a fight is easier to follow. Both sides slow alike.
+  const PACE = 1.25, FLIGHT = [1.35, 1.75], SPECIAL_FLIGHT = 2;
+  Combat.PACE = PACE;
   Combat.start = function (canvas, setup, onEnd) {
     const ctx = canvas.getContext('2d');
     // setup.stats carries the ship's effective numbers after fittings and curiosities.
     const pShip = { ...TW.SHIP[setup.ship.type], ...(setup.stats || {}) };
+    pShip.reload *= PACE;
     // At sea the pirates sit in a line to the right. In a port battle the fort and its
     // batteries stand on the headland and any pirate ships guard the water below it.
     const land = setup.enemies.filter(e => e.land), ships = setup.enemies.filter(e => !e.land);
@@ -173,7 +178,7 @@
     // Difficulty toughens hulls and quickens the enemy's reload (TW.diff in data.js).
     const D = TW.diff;
     const enemies = [...land.map((e, i) => [e, i, land.length]), ...ships.map((e, i) => [e, i, ships.length])].map(([e, i, n]) => {
-      const hull = Math.round(e.hull * D.enemyHull), reload = e.reload / D.enemyFire;
+      const hull = Math.round(e.hull * D.enemyHull), reload = e.reload / D.enemyFire * PACE;
       return { ...e, hull, reload, hp: hull, maxHp: hull, alive: true, sink: 0, ...place(e, i, n),
         guns: Array.from({ length: e.guns }, () => rand(0.8, reload * 1.5)) };
     });
@@ -222,7 +227,7 @@
 
   function shoot(from, to, opts) {
     S.shots.push({ x0: from.x, y0: from.y, x1: to.x + rand(-12, 12), y1: to.y + rand(-6, 6), t: 0,
-      dur: opts.dur || rand(1.05, 1.35), arc: opts.arc || rand(40, 80), ...opts });
+      dur: opts.dur || rand(...FLIGHT), arc: opts.arc || rand(40, 80), ...opts });
     S.fx.push({ kind: 'smoke', x: from.x, y: from.y, t: 0, life: 0.8 });
   }
 
@@ -366,7 +371,7 @@
     g.special = null; S.ammo[id]--;
     const list = a.all ? S.enemies.filter(e => e.alive) : [target];
     list.forEach((e, k) => shoot({ x: S.px + 40 + i * 4, y: S.py - 14 }, { x: e.x, y: e.y - 10 },
-      { by: 'p', special: id, all: false, dmg: a.dmg, tgt: S.enemies.indexOf(e), dur: 1.55 + k * 0.1, arc: 110 }));
+      { by: 'p', special: id, all: false, dmg: a.dmg, tgt: S.enemies.indexOf(e), dur: SPECIAL_FLIGHT + k * 0.1, arc: 110 }));
     TW.sfx(LAUNCH_SFX[id]);
     say(`${a.name} away!`);
     Combat.refreshButtons();
