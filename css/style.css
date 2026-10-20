@@ -298,6 +298,11 @@ input, select { border: 1px solid rgba(19,50,74,0.3); border-radius: 0.4375rem; 
 .keeper .back { color: var(--cream); border-color: rgba(255,248,230,0.4); }
 .threat { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 1rem; border-radius: 0.5rem; color: white; font-size: 1.1rem; }
 .threat b { font-family: var(--font-display); font-size: 1.6rem; font-weight: normal; }
+.threat + .threat { margin-top: 0.5rem; }
+.threat span, .threat b { display: flex; flex-direction: column; }
+.threat b { align-items: flex-end; }
+.threat small { font-family: var(--font-body); font-size: 0.8rem; opacity: 0.85; line-height: 1.2; }
+.threat.weather.w0 { background: #3d86a8; } .threat.weather.w1 { background: #5b7685; } .threat.weather.w2 { background: #4a5a78; } .threat.weather.w3 { background: #2f3550; }
 .threat.t0 { background: #3c9a63; } .threat.t1 { background: #c79a2e; } .threat.t2 { background: #d4673d; } .threat.t3 { background: #8e2b25; }
 .checks { list-style: none; padding: 0; margin: 0.4rem 0 1rem; font-size: 1.1rem; }
 .checks li { padding: 0.3rem 0; }

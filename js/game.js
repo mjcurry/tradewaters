@@ -537,12 +537,11 @@
   function talkContext() {
     const p = port(), d = shipDef();
     const list = ids => ids.map(id => TW.GOOD[id].name.toLowerCase()).join(' and ');
-    const D = dangerLevel();
     return {
       portId: p.id, name: S.name, port: p.name, home: TW.PORT[S.home].name, ship: d.name,
       cash: S.cash, bank: S.bank, debt: S.debt, worth: worth(), guns: S.ship.guns,
       cargo: cargoQty(), hullPct: S.ship.hull / d.hull, loadPct: usedSpace() / d.cargo,
-      threat: D < 6 ? 0 : D < 14 ? 1 : D < 26 ? 2 : 3,
+      threat: seaAt(p.id).act,
       uncharted: S.known.length < TW.PORTS.length, firstVisit: !(S.visited || {})[p.id],
       overdue: loanOverdue(), dueIn: S.loanDue ? S.loanDue - S.day : 0,
       contracts: contracts().length,
@@ -617,7 +616,7 @@
 
   function renderHarbor(el) {
     const d = shipDef(), c = talkContext();
-    const threat = ['Quiet', 'Some sightings', 'Dangerous', 'Deadly'][c.threat];
+    const sea = seaAt(), odds = stormOdds(), m = mods();
     const checks = [
       [S.ship.hull >= d.hull * 0.7, `Hull ${S.ship.hull}/${d.hull}`],
       [S.ship.guns - S.ship.broken >= Math.min(d.guns, 2 + c.threat * 3), `${S.ship.guns - S.ship.broken} working cannons`],
@@ -625,7 +624,9 @@
       [S.ammo.chain + S.ammo.fire + S.ammo.keg > 0, `${S.ammo.chain + S.ammo.fire + S.ammo.keg} special shot`],
     ];
     el.innerHTML = `<h2>Harbor Office</h2>
-      <div class="threat t${c.threat}"><span>Pirate activity</span><b>${threat}</b></div>
+      <div class="threat t${sea.act}"><span>Pirate activity</span><b>${ACTIVITY[sea.act]}</b></div>
+      <div class="threat weather w${sea.wx}"><span>Weather report${hurricaneSeason() ? '<small>Hurricane season</small>' : ''}</span>
+        <b>${WEATHER[sea.wx].name}<small>Storm risk ${odds ? fmtOdds(odds) : 'none'}${m.storm === 0 ? ' with your compass' : m.storm !== 1 ? ' with your ship' : ''}</small></b></div>
       <h3>Readiness</h3>
       <ul class="checks">${checks.map(([ok, t]) => `<li class="${ok ? 'ok' : 'warn'}">${ok ? '✔' : '⚠'} ${t}</li>`).join('')}</ul>
       <p class="hint">${S.known.length} of ${TW.PORTS.length} ports charted.</p>
@@ -1071,6 +1072,7 @@
     const d = shipDef();
     const warn = [];
     if (S.ship.hull < d.hull * 0.5) warn.push('Your hull is badly damaged.');
+    if (stormOdds() >= 1.4) warn.push(`${WEATHER[seaAt().wx].name} weather: storms are ${fmtOdds(stormOdds())} as likely as usual.`);
     if (!S.ship.guns) warn.push('You carry no cannons. Pirates will find you easy prey.');
     if (contracts().some(c => c.risky && c.to === p.id)) warn.push(`Word of your job for ${p.name} has spread. Pirates are watching for you.`);
     if (isHostile(p.id)) warn.push(`${hostile()[p.id].captain}'s pirates hold ${p.name}. You'll have to fight past its fort to dock.`);
@@ -1081,6 +1083,30 @@
       ${warn.map(w => `<p class="bad">⚠ ${w}</p>`).join('')}`,
       [['Weigh anchor!', () => startVoyage(p.id, r, days), 'big'], ['Not yet', null, 'ghost']]);
   }
+
+  // ----- Sea conditions -----
+  // Each port's harbor office posts its own pirate activity and weather, fresh each week.
+  // Activity centres on how dangerous the sea has become (your wealth and the years) but
+  // swings either way, and the swing changes how often pirates find you. Weather follows
+  // the season: August to October is hurricane season.
+  const ACTIVITY = ['Quiet', 'Some sightings', 'Dangerous', 'Deadly'];
+  const SWING = [[-2, 0.15, 0.55], [-1, 0.3, 0.75], [0, 0.35, 1], [1, 0.15, 1.45], [2, 0.05, 1.9]];   // offset, weight, encounter odds (averages about 1)
+  const WEATHER = [{ name: 'Fair', storm: 0.35 }, { name: 'Changeable', storm: 0.8 }, { name: 'Squally', storm: 1.4 }, { name: 'Stormy', storm: 2.2 }];
+  const pickWeighted = w => { let k = Math.random() * w.reduce((a, b) => a + b, 0), i = 0; while ((k -= w[i]) > 0 && i < w.length - 1) i++; return i; };
+  const hurricaneSeason = () => monthIndex(S.day) % 12 >= 7 && monthIndex(S.day) % 12 <= 9;
+  const fmtOdds = x => '\u00d7' + (Math.round(x * 10) / 10).toFixed(1).replace(/\.0$/, '');
+  const dangerTier = () => { const D = dangerLevel(); return D < 6 ? 0 : D < 14 ? 1 : D < 26 ? 2 : 3; };
+  function seaAt(id = S.port) {
+    const wk = Math.floor(S.day / 7), sea = S.sea || (S.sea = {});
+    if (!sea[id] || sea[id].wk !== wk) {
+      const [off, , odds] = SWING[pickWeighted(SWING.map(x => x[1]))];
+      sea[id] = { wk, act: Math.max(0, Math.min(3, dangerTier() + off)), pirates: odds,
+        wx: pickWeighted(hurricaneSeason() ? [0.1, 0.3, 0.35, 0.25] : [0.3, 0.4, 0.2, 0.1]) };
+    }
+    return sea[id];
+  }
+  // How much likelier than usual a storm is if you sail from here now, counting your ship.
+  const stormOdds = (id = S.port) => WEATHER[seaAt(id).wx].storm * mods().storm;
 
   function dangerLevel() {
     const w = Math.max(1, worth());
@@ -1110,10 +1136,11 @@
     const scale = Math.max(0.5, Math.min(1.6, route.len / 350));
     const events = [];
     const m = mods();
-    if (Math.random() < 0.12 * scale * m.storm * TW.diff.storms) events.push({ t: rand(0.2, 0.8), kind: 'storm' });
+    const sea = seaAt(S.port);   // conditions where you weigh anchor
+    if (Math.random() < 0.12 * scale * m.storm * TW.diff.storms * WEATHER[sea.wx].storm) events.push({ t: rand(0.2, 0.8), kind: 'storm' });
     // Fewer but tougher encounters; a fuller hold draws more attention.
     const watched = contracts().some(c => c.risky && c.to === dest);   // a leaked job draws pirates
-    const pirateChance = (0.18 * scale * (cargoQty() ? 0.75 + 0.5 * usedSpace() / shipDef().cargo : 0.5) + (watched ? 0.2 : 0)) * m.pirates * TW.diff.pirates;
+    const pirateChance = (0.18 * scale * (cargoQty() ? 0.75 + 0.5 * usedSpace() / shipDef().cargo : 0.5) + (watched ? 0.2 : 0)) * m.pirates * TW.diff.pirates * sea.pirates;
     if (Math.random() < pirateChance) events.push({ t: rand(0.25, 0.85), kind: 'pirates' });
     if (Math.random() < 0.05) events.push({ t: rand(0.2, 0.8), kind: 'flotsam' });
     // Navy patrols watch the approaches to ports that ban goods you are carrying.
@@ -1885,6 +1912,8 @@
   // Exposed for debugging and automated checks.
   // Set TW._debug.nextEvents = ['pirates', 'storm'] to force events on the next voyage.
   TW._debug = { get state() { return S; }, set state(v) { S = v; }, go, passDay, makeFleet, worth, arrive, nextEvents: null,
+    // This week's pirate activity and weather at a port: { act 0-3, pirates odds, wx 0-3 }.
+    sea: seaAt, stormOdds,
     // Fire a sea event ('storm', 'pirates', 'flotsam', 'patrol') as if sailing toward `dest`.
     event(kind, dest = S.port) { runEvent({ dest, paused: true }, { kind }); },
     // Hand a charted port to pirates now (defaults to the first other charted port).
