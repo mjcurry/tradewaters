@@ -616,7 +616,7 @@
 
   function renderHarbor(el) {
     const d = shipDef(), c = talkContext();
-    const sea = seaAt(), m = mods();
+    const sea = seaAt();
     const checks = [
       [S.ship.hull >= d.hull * 0.7, `Hull ${S.ship.hull}/${d.hull}`],
       [S.ship.guns - S.ship.broken >= Math.min(d.guns, 2 + c.threat * 3), `${S.ship.guns - S.ship.broken} working cannons`],
@@ -627,7 +627,7 @@
       <div class="threat t${sea.act}"><span>Pirate activity</span><b>${ACTIVITY[sea.act]}</b></div>
       <div class="threat weather w${sea.wx}"><span>Weather report${hurricaneSeason() ? '<small>Hurricane season</small>' : ''}</span>
         <b>${WEATHER[sea.wx].name}</b></div>
-      <p class="hint weather-note">${WEATHER[sea.wx].desc} ${shipWeather(m)}</p>
+      <p class="hint weather-note">${WEATHER[sea.wx].desc} ${shipWeather()}</p>
       <h3>Readiness</h3>
       <ul class="checks">${checks.map(([ok, t]) => `<li class="${ok ? 'ok' : 'warn'}">${ok ? '✔' : '⚠'} ${t}</li>`).join('')}</ul>
       <p class="hint">${S.known.length} of ${TW.PORTS.length} ports charted.</p>
@@ -1098,9 +1098,15 @@
     { name: 'Squally', storm: 1.4, desc: 'Squalls on the horizon. A storm is likelier than usual.' },
     { name: 'Stormy', storm: 2.2, desc: 'A gale is building. Sail now and you may well meet a storm.' },
   ];
-  // A word on what your own ship does to those odds (charms and fittings).
-  const shipWeather = m => m.storm === 0 ? 'Your Ultimate Compass will steer you clear of any storm.'
-    : m.storm < 1 ? 'Your ship\u2019s charms make a storm less likely.' : m.storm > 1 ? 'Your light trim makes a storm more likely.' : '';
+  // A word on what's aboard that changes those odds, naming the actual fitting or charm.
+  function shipWeather() {
+    const fitted = id => (S.ship.fittings || []).includes(id);
+    if (fitted('compass')) return 'Your Ultimate Compass will steer you clear of any storm.';
+    const notes = [];
+    if ((S.items || []).some(it => it.id === 'stormdoll' && (curioFx(it).storm ?? 1) < 1)) notes.push('Your Storm Watcher Doll will see a storm coming early.');
+    if (fitted('feather')) notes.push('Your Feather-Light Trim makes a storm more likely.');
+    return notes.join(' ');
+  }
   const pickWeighted = w => { let k = Math.random() * w.reduce((a, b) => a + b, 0), i = 0; while ((k -= w[i]) > 0 && i < w.length - 1) i++; return i; };
   const hurricaneSeason = () => monthIndex(S.day) % 12 >= 7 && monthIndex(S.day) % 12 <= 9;
   const dangerTier = () => { const D = dangerLevel(); return D < 6 ? 0 : D < 14 ? 1 : D < 26 ? 2 : 3; };
