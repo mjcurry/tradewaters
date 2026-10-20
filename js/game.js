@@ -1938,6 +1938,7 @@
     TW.initMap();
     TW.loadSfx();   // not awaited: until a sample decodes, its synthesized stand-in plays
     TW.loadFolk();  // not awaited either: townsfolk appear once their sprites are in
+    TW.loadBattleBackdrops();   // likewise: until they land, battles use the storm backdrop
     await Promise.all([loadImages(), TW.loadShipArt(), TW.loadMapArt()]);
     predecodeBuildings();
     go('title');

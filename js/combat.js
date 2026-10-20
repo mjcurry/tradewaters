@@ -161,6 +161,26 @@
   // shot flies for FLIGHT seconds, so a fight is easier to follow. Both sides slow alike.
   const PACE = 1.25, FLIGHT = [1.35, 1.75], SPECIAL_FLIGHT = 2;
   Combat.PACE = PACE;
+  // Open-sea backdrops: the original storm plus a sunset, a clear afternoon, a moonlit night,
+  // a distant island and a misty dawn, all with the horizon on the same line. They're dealt
+  // from a shuffled deck, so each comes up once before any repeats, and never twice running.
+  const BACKDROPS = ['sunset', 'clear', 'night', 'isle', 'dawn'];
+  const backdrops = [];
+  TW.loadBattleBackdrops = () => Promise.all(BACKDROPS.map(n => new Promise(res => {
+    const img = new Image();
+    img.onload = () => { backdrops.push(img); res(); };
+    img.onerror = () => res();
+    img.src = `assets/img/battle/${n}.jpg`;
+  })));
+  let deck = [], lastBg = null;
+  function nextBackdrop() {
+    const all = [TW.images.combat, ...backdrops].filter(Boolean);
+    if (!deck.length) {
+      deck = all.slice().sort(() => Math.random() - 0.5);
+      if (deck.length > 1 && deck[deck.length - 1] === lastBg) deck.unshift(deck.pop());   // no repeat across a reshuffle
+    }
+    return (lastBg = deck.pop() || null);
+  }
   Combat.start = function (canvas, setup, onEnd) {
     const ctx = canvas.getContext('2d');
     // setup.stats carries the ship's effective numbers after fittings and curiosities.
@@ -191,7 +211,7 @@
       px: 230, py: 420, booty: 0, enemyAim: (setup.enemyAim ?? 1) * TW.diff.enemyAim,
     };
     S.port = !!setup.port;
-    S.bg = (S.port && TW.images.siege) || TW.images.combat;
+    S.bg = (S.port && TW.images.siege) || nextBackdrop();
     S.waveTop = S.port ? 336 : 300;
     canvas.onclick = (ev) => {
       const r = canvas.getBoundingClientRect();
@@ -214,6 +234,7 @@
   Combat.stop = function () { if (S) cancelAnimationFrame(S.raf); S = null; };
   // For automated checks: run the battle forward `sec` seconds without waiting for frames.
   Combat._shots = () => (S ? S.shots : []);   // for automated checks
+  Combat._bg = () => (S && S.bg ? S.bg.src.split('/').pop() : null);
   Combat._advance = function (sec) { for (let t = 0; t < sec && S && !S.over; t += 0.05) update(0.05); if (S && !S.over) draw(); };
 
   function say(text) { S.msg = text; S.msgT = 2.5; }
