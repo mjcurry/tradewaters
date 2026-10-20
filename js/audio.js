@@ -125,6 +125,8 @@
       case 'firePot': noise(1.0, 400, 1, 2); tone(50, 0.6, 'sine', 0.5, -20); break;   // the original special-shot explosion
       case 'sail': tone(880, 1.2, 'sine', 0.15); tone(1320, 0.8, 'sine', 0.06); break;   // the original synthesized ship's bell
       case 'fuse': noise(0.8, 5000, 0.15, 0.4); break;
+      case 'shipwreck': noise(0.6, 900, 0.7, 2); setTimeout(() => { noise(3.5, 260, 0.6, 0.5); tone(55, 3, 'sine', 0.25, -25); }, 350); break;
+      case 'defeat': [0, 1400, 2800].forEach(d => setTimeout(() => { tone(196, 2.4, 'sine', 0.14); tone(294, 1.6, 'sine', 0.05); }, d)); break;   // a slow tolling bell
     }
   };
 

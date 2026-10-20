@@ -1328,22 +1328,65 @@
       S.stats.fled++;
       log(`Escaped ${fleet.captain}'s pirates.`);
       backToMap(() => { toast('You escaped!', 'good'); resume(v); });
-    } else {
-      S.stats.lost++;
-      const takeCash = Math.round(S.cash * 0.5);
-      S.cash -= takeCash; S.ship.cargo = {}; S.ship.hull = 1;
-      S.ship.broken = Math.min(S.ship.guns, S.ship.broken + Math.ceil(S.ship.guns / 2));
-      const pos = v.pos;
-      const near = nearestOpenPort(pos, fleet.port);
-      log(`Crippled by ${fleet.captain}. Lost all cargo and ${fmt(takeCash)} gold. Towed into ${near.name}.`);
+    } else shipwreck(v, fleet);
+  }
+
+  // ----- Shipwreck -----
+  // A sunk ship takes her cargo, cannons, fittings and special shot down with her. The
+  // captain is fished out and set ashore at the nearest open home port with a shipyard,
+  // where purse and bank must cover a new ship. If they can't, the game is over.
+  const HAVENS = START_PORTS.filter(id => TW.PORT[id].svc.includes('S'));
+  const RESCUERS = ['a Dutch fluyt', 'a fishing smack', 'a Spanish mail packet', 'a turtling sloop', 'an English merchantman'];
+  const cheapestShip = () => Math.min(...TW.SHIPS.map(sh => sh.price));
+  function shipwreck(v, fleet) {
+    S.stats.lost++;
+    const lost = shipDef().name, from = v.pos || port();
+    const take = Math.round(S.cash * 0.5); S.cash -= take;
+    const haven = HAVENS.filter(id => !isHostile(id)).map(id => TW.PORT[id])
+      .sort((a, b) => Math.hypot(a.x - from.x, a.y - from.y) - Math.hypot(b.x - from.x, b.y - from.y))[0] || TW.PORT[S.home];
+    const days = Math.min(12, 3 + Math.round(Math.hypot(haven.x - from.x, haven.y - from.y) / 90));
+    const rescuer = RESCUERS[Math.floor(Math.random() * RESCUERS.length)];
+    // Nothing left but the clothes on your back (and any curiosities in your pockets).
+    S.ship = { type: 'sloop', hull: 0, guns: 0, broken: 0, cargo: {}, fittings: [] };
+    S.ammo = { chain: 0, fire: 0, keg: 0 };
+    mapState.voyage = null;
+    log(`Sunk by ${fleet.captain}${fleet.port ? ` off ${TW.PORT[fleet.port].name}` : ''}. The ${lost} went down with all her cargo.`);
+    TW.music(null); TW.sfx('defeat');
+    modal(`<h2>\u2620 Shipwrecked</h2>
+      <p>Your ${lost} slips beneath the waves, taking her cargo, cannons and fittings with her.${take ? ` ${esc(fleet.captain)}\u2019s men pick over the wreckage and take <b>${gold(take)}</b> from your purse.` : ''}</p>
+      <p>You cling to a spar until ${rescuer} hauls you aboard and carries you to <b>${haven.name}</b>, ${days} days away.</p>`,
+      [['Go ashore', () => {
+        for (let i = 0; i < days; i++) passDay();
+        if (!S.known.includes(haven.id)) S.known.push(haven.id);
+        castaway(haven);
+      }, 'big']], 'wreck');
+  }
+  // Ashore with no ship: buy one with purse and bank together, or retire bankrupt.
+  function castaway(haven) {
+    S.port = haven.id;
+    const funds = S.cash + S.bank;
+    if (funds < cheapestShip()) {
+      S.ended = 'bankrupt';
+      log(`Bankrupt in ${haven.name}, with no ship and no gold to buy one.`);
       TW.sfx('bad');
-      backToMap(() => modal(`<h2>Defeat</h2><p>Your ship is a smoking wreck. The pirates strip her bare and leave you adrift.</p>
-        <p class="bad">Lost all cargo and ${fmt(takeCash)} gold. Half your cannons are broken.</p>
-        <p>A passing fisherman tows you into <b>${near.name}</b>.</p>`, [['Limp ashore', () => {
-          for (let i = 0; i < 3; i++) passDay();
-          mapState.voyage = null; arrive(near.id, true);
-        }]]));
+      return modal(`<h2>Bankrupt</h2>
+        <p>You walk the quay at ${haven.name} with ${gold(funds)} to your name. The cheapest hull in the harbor costs ${gold(cheapestShip())}, and no lender will stake a captain without a ship.</p>
+        <p class="bad">Your days as a merchant captain are over.</p>`, [['The end of the road', () => go('end'), 'big']], 'wreck');
     }
+    const ships = TW.SHIPS.filter(sh => TW.goodUnlocked(S, sh) && sh.price <= funds);
+    modal(`<h2>A ship for ${esc(S.name)}</h2>
+      <p>The shipwrights of ${haven.name} have hulls for sale. You have ${gold(S.cash)} in your purse and ${gold(S.bank)} in the bank; the bank covers whatever the purse can't.</p>
+      <p class="hint">A new ship comes bare, with ${Math.min(2, TW.SHIP.sloop.guns)} old cannons thrown in.</p>`,
+      ships.map((sh, i) => [`${sh.name} · ${fmt(sh.price)} g`, () => newShipAshore(sh.id), i === 0 ? 'big' : 'ghost']), 'wreck');
+  }
+  function newShipAshore(id) {
+    const nd = TW.SHIP[id], fromCash = Math.min(S.cash, nd.price);
+    S.cash -= fromCash; S.bank -= nd.price - fromCash;
+    S.ship = { type: id, hull: nd.hull, guns: Math.min(2, nd.guns), broken: 0, cargo: {}, fittings: [] };
+    S.ship.hull = shipDef().hull;   // curiosities like the Shield Doll still count
+    log(`Bought a ${nd.name} in ${port().name} and went back to sea.`);
+    TW.sfx('bell');
+    arrive(S.port, true);
   }
   // Share out the spoils of a won battle: gold from every ship sunk, plus a chance at
   // cargo, gems, special shot, a working cannon or a chart to an uncharted port.
@@ -1515,8 +1558,9 @@
     if (isBest) try { localStorage.setItem(bestKey, String(w)); } catch (e) {}
     el.innerHTML = `${titleArt(true)}
       <div class="panel newgame end">
-        <h2>${S.mode === 'career' ? 'Ten Years at Sea' : 'Retirement'}</h2>
-        <p>${esc(S.name)} retires as a <b>${rankOf(w)}</b>, on ${diffName()}.</p>
+        <h2>${S.ended === 'bankrupt' ? 'Bankrupt' : S.mode === 'career' ? 'Ten Years at Sea' : 'Retirement'}</h2>
+        <p>${S.ended === 'bankrupt' ? `Shipwrecked and penniless, ${esc(S.name)} is stranded in ${port().name}, a ruined <b>${rankOf(w)}</b>, on ${diffName()}.`
+          : `${esc(S.name)} retires as a <b>${rankOf(w)}</b>, on ${diffName()}.`}</p>
         <p class="score">Net worth ${gold(w)}${isBest ? ` <span class="up">New best on ${diffName()}!</span>` : ` <small>(best on ${diffName()}: ${fmt(best)})</small>`}</p>
         <div class="kv"><span>Voyages</span><b>${S.stats.voyages}</b></div>
         <div class="kv"><span>Trading profit</span><b>${fmt(S.stats.profit)}</b></div>
@@ -1611,7 +1655,7 @@
         ['city', 'Explore the port', 'Every port has its own harbor. Click a building on the quay to step inside and meet its keeper. They have opinions about your ship, your debts and your cargo.'],
         ['market', 'Trade', 'Each port makes some goods cheaply and pays dearly for others. Buy where prices are <span class="cheap">green</span> and sell where they are <span class="dear">red</span>. Big trades move the price, and ports remember: run the same route again and again and its margin shrinks for weeks, so rotate your routes. Tags beside a good (shortage, glut, contraband) explain themselves: hover or tap them.'],
         ['map', 'Sail', 'Visit the Harbor Office or press Set Sail, then pick a port on the chart. Hover a port to see the prices you saw there last. Harbor Offices post freight contracts that beat market prices if you make the deadline, and taverns whisper of smuggling jobs. Each nation bans some goods, and its navy patrols the approaches.'],
-        ['combat', 'Survive', 'Pirates and storms prowl the sea lanes. In battle, click an enemy to target it. Your cannons fire on their own. Click a special shot to load it into the next cannon to fire: chain shot, fire pots and powder kegs can turn the tide. Outgunned? Flee. Now and then pirates seize a port and close its harbor: storm its fort and batteries to free it, for gold and gems.'],
+        ['combat', 'Survive', 'Pirates and storms prowl the sea lanes. In battle, click an enemy to target it. Your cannons fire on their own. Click a special shot to load it into the next cannon to fire: chain shot, fire pots and powder kegs can turn the tide. Outgunned? Flee. If your ship sinks you are carried to the nearest home port with a shipyard and must buy another from your purse and bank; if you can\u2019t, you are bankrupt and the game is over. Now and then pirates seize a port and close its harbor: storm its fort and batteries to free it, for gold and gems.'],
         ['ship', 'Grow', 'Rising net worth (cash + bank + cargo \u2212 debt) unlocks richer goods, new charts and bigger ships. Cannons cost hold space, so balance firepower against cargo. Every day at sea costs wages and provisions, and the moneylender charges 10% a month with loans due in 90 days. Shipyards sell fittings such as faster-firing cannons and bigger holds, and tavern traders sell curiosities, if you trust them.'],
       ];
       modal(`<h2>How to Play</h2>${rows.map(([img, title, text]) => `

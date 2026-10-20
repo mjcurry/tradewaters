@@ -232,7 +232,7 @@
     const target = aliveTarget();
     const fleeingAway = S.flee && S.flee.t > 0.6;
     // player guns
-    if (target && !fleeingAway) {
+    if (target && !fleeingAway && !S.sinking) {
       S.guns.forEach((g, i) => {
         if (g.broken) return;
         g.t -= dt;
@@ -248,7 +248,7 @@
     }
     // enemy guns
     for (const e of S.enemies) {
-      if (!e.alive) continue;
+      if (!e.alive || S.sinking) continue;
       e.guns.forEach((t, i) => {
         e.guns[i] -= dt;
         if (e.guns[i] <= 0) {
@@ -313,10 +313,26 @@
         Combat.refreshButtons();
       }
     }
-    if (S.hull <= 0) return finish('sunk');
+    // Hull gone: the ship goes down over a few seconds (guns fall silent, music stops,
+    // timbers crack) before the battle ends.
+    if (S.hull <= 0 && !S.sinking) {
+      S.sinking = { t: 0 }; S.flee = null;
+      say('She\u2019s going down!');
+      TW.sfx('shipwreck'); TW.music(null);
+      Combat.refreshButtons();
+    }
+    if (S.sinking) {
+      const k = (S.sinking.t += dt) / SINK_TIME;
+      if (Math.random() < dt * 10) S.fx.push({ kind: 'soot', x: S.px + rand(-60, 60), y: S.py - rand(10, 70) + k * 60, t: 0, life: 1.8 });
+      if (Math.random() < dt * 14) S.fx.push({ kind: 'bubble', x: S.px + rand(-80, 80), y: S.py + rand(12, 26), t: 0, life: rand(0.6, 1.2) });
+      if (k < 0.5 && Math.random() < dt * 5) S.fx.push({ kind: 'fire', x: S.px + rand(-50, 50), y: S.py - rand(5, 40), t: 0, life: 0.9 });
+      if (S.sinking.t >= SINK_TIME) return finish('sunk');
+      return;
+    }
     if (!S.enemies.some(e => e.alive) && S.enemies.every(e => e.sink >= 1)) return finish('win');
   }
 
+  const SINK_TIME = 4.5;   // seconds the player's ship takes to go under
   function finish(outcome) {
     if (S.over) return;
     S.over = true;
@@ -336,7 +352,7 @@
   const loadedCount = id => S.guns.filter(g => g.special === id).length;
   const available = id => (S.ammo[id] || 0) - loadedCount(id);
   Combat.special = function (id) {
-    if (!S || S.over || available(id) <= 0) return;
+    if (!S || S.over || S.sinking || available(id) <= 0) return;
     const free = S.guns.filter(g => !g.broken && !g.special);
     if (!free.length) { say(S.guns.some(g => !g.broken) ? 'Every gun is already loaded!' : 'No working cannon to load!'); return; }
     const g = free.reduce((a, b) => (b.t < a.t ? b : a));
@@ -357,7 +373,7 @@
   }
 
   Combat.flee = function () {
-    if (!S || S.over || S.flee || S.fleeCooldown > 0) return;
+    if (!S || S.over || S.sinking || S.flee || S.fleeCooldown > 0) return;
     // Only ships can give chase; forts are easy to sail away from.
     const alive = S.enemies.filter(e => e.alive && !e.land).length;
     const chance = S.port ? Math.min(0.95, 0.85 - 0.1 * alive + (S.pShip.speed - 44) / 80)
@@ -374,12 +390,12 @@
       if (b) {
         const loaded = loadedCount(a.id), left = available(a.id);
         b.querySelector('.n').textContent = left + (loaded ? ` +${loaded} loaded` : '');
-        b.disabled = left <= 0;
+        b.disabled = left <= 0 || !!S.sinking;
         b.classList.toggle('armed', loaded > 0);
       }
     }
     const f = document.getElementById('btn-flee');
-    if (f) f.disabled = !!S.flee;
+    if (f) f.disabled = !!S.flee || !!S.sinking;
   };
 
   // ---------- projectiles ----------
@@ -483,13 +499,26 @@
       }
     });
     // player
-    drawShip(ctx, S.pShip.id, S.px, S.py + Math.sin(t * 1.3) * 4, 1, { scale: 1.05, flag: '#1f6f8b', sail: '#fff8e6', wash: t });
+    if (S.sinking) {
+      // Going down by the bow: list, settle, and slip below a waterline the hull can't cross.
+      const k = Math.min(1, S.sinking.t / SINK_TIME), e = k * k;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0, 0, W, S.py + 14 + Math.sin(t * 2) * 2); ctx.clip();
+      ctx.globalAlpha = 1 - Math.max(0, k - 0.75) * 4;
+      drawShip(ctx, S.pShip.id, S.px + k * 18, S.py + e * 150, 1, { scale: 1.05, flag: '#1f6f8b', sail: '#e9dfc8', wash: t, tilt: 0.12 + k * 0.45 });
+      ctx.restore();
+      // churned water where she went down
+      ctx.fillStyle = `rgba(225,240,248,${0.35 * (1 - k * 0.6)})`;
+      ctx.beginPath(); ctx.ellipse(S.px + k * 18, S.py + 16, 70 + k * 40, 6 + k * 4, 0, 0, Math.PI * 2); ctx.fill();
+    } else drawShip(ctx, S.pShip.id, S.px, S.py + Math.sin(t * 1.3) * 4, 1, { scale: 1.05, flag: '#1f6f8b', sail: '#fff8e6', wash: t });
     // shots, trails first so every projectile sits on top of its own smoke
     for (const s of S.shots) drawTrail(ctx, s);
     for (const s of S.shots) drawShot(ctx, s);
     // effects
     for (const f of S.fx) {
       const k = f.t / f.life;
+      if (f.kind === 'soot') { ctx.fillStyle = `rgba(45,42,40,${0.55 * (1 - k)})`; ctx.beginPath(); ctx.arc(f.x, f.y - k * 40, 10 + k * 26, 0, Math.PI * 2); ctx.fill(); }
+      if (f.kind === 'bubble') { ctx.strokeStyle = `rgba(225,240,248,${0.8 * (1 - k)})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(f.x, f.y - k * 8, 2 + k * 5, 0, Math.PI * 2); ctx.stroke(); }
       if (f.kind === 'smoke') { ctx.fillStyle = `rgba(230,230,225,${0.6 * (1 - k)})`; ctx.beginPath(); ctx.arc(f.x, f.y - k * 20, 8 + k * 18, 0, Math.PI * 2); ctx.fill(); }
       if (f.kind === 'splash') { ctx.strokeStyle = `rgba(230,245,255,${1 - k})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(f.x, f.y, 6 + k * 20, 2 + k * 5, 0, 0, Math.PI * 2); ctx.stroke();
         ctx.fillStyle = `rgba(230,245,255,${0.8 * (1 - k)})`; ctx.fillRect(f.x - 2, f.y - 25 * Math.sin(Math.PI * k), 4, 25 * Math.sin(Math.PI * k)); }
@@ -500,6 +529,7 @@
       if (f.kind === 'hit' || f.kind === 'fire') { ctx.fillStyle = f.kind === 'fire' ? `rgba(255,120,40,${1 - k})` : `rgba(255,200,80,${1 - k})`; ctx.beginPath(); ctx.arc(f.x, f.y, 6 + k * 22, 0, Math.PI * 2); ctx.fill(); }
     }
     ctx.restore();
+    if (S.sinking) { ctx.fillStyle = `rgba(4,12,20,${Math.min(1, S.sinking.t / SINK_TIME) * 0.5})`; ctx.fillRect(0, 0, W, H); }
     // HUD: hull bar and gun reload pips
     ctx.fillStyle = 'rgba(10,25,35,0.65)'; ctx.fillRect(16, 16, 300, 64);
     ctx.fillStyle = '#fff8e6'; ctx.font = 'bold 16px Alegreya, Georgia'; ctx.textAlign = 'left';
