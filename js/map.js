@@ -478,9 +478,9 @@
       ctx.font = (hov ? '16px' : '15px') + ' "IM Fell English SC", Georgia, serif';
       ctx.textAlign = p.lon > -64 ? 'right' : 'left';
       const lx = p.x + (p.lon > -64 ? -11 : 11);
-      const label = known ? p.name : '?';
-      ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(244,234,205,0.8)'; ctx.strokeText(label, lx, p.y + 4);
-      ctx.fillStyle = known ? INK : 'rgba(59,42,26,0.55)'; ctx.fillText(label, lx, p.y + 4);
+      const label = known ? p.name : '?', ly = p.y + 4 + (p.labelDy || 0);   // labelDy: nudge clear of a close neighbour
+      ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(244,234,205,0.8)'; ctx.strokeText(label, lx, ly);
+      ctx.fillStyle = known ? INK : 'rgba(59,42,26,0.55)'; ctx.fillText(label, lx, ly);
     }
     const look = state.ship && state.ship.type;
     if (opts.ship) TW.drawShipIcon(ctx, opts.ship.x, opts.ship.y, opts.ship.ang, 1.4, look);
