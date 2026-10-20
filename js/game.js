@@ -1741,7 +1741,7 @@
     },
     'menu': () => modal(`<h2>Menu</h2><p>Your game saves automatically each time you reach port.</p>
       <p>Difficulty: <b>${diffName()}</b></p>
-      ${iOS && !installed() ? '<p class="hint">To play full screen, tap Safari\u2019s Share button, choose <b>Add to Home Screen</b>, and open Tradewaters from its icon. In Safari itself, turn the phone sideways and swipe up to hide the bars.</p>' : ''}`,
+      ${iOS && !installed() ? '<p class="hint">To play full screen, tap Safari\u2019s Share button, choose <b>Add to Home Screen</b>, and open Tradewaters from its icon.</p>' : ''}`,
       [['Resume', null, 'big'], ...(document.fullscreenEnabled ? [[document.fullscreenElement ? 'Exit full screen' : 'Full screen', toggleFullscreen, 'ghost']] : []),
        ['Change difficulty', () => chooseDifficulty(), 'ghost'], ['Retire and see your score', () => go('end'), 'ghost'], ['Quit to title', () => { save(); go('title'); }, 'ghost']]),
     'dismiss-fs': () => { try { localStorage.setItem('tradewaters-fs-ok', '1'); } catch (e) {} fsHint(); },
@@ -1950,21 +1950,20 @@
     }
   }
 
-  // Sideways in a browser tab on a phone: the page is sized to the bars-hidden screen (see
-  // style.css), so a swipe up tucks the browser's bars away. Say so until the player swipes,
-  // and on iPhone point to Add to Home Screen for true full screen.
+  // Sideways in a browser tab on a phone: on iPhone, point to Add to Home Screen for true full
+  // screen (Safari won't let a page go full screen); elsewhere, to the menu's Full screen.
   const sideways = window.matchMedia && matchMedia('(orientation: landscape) and (max-height: 540px)');
   function fsHint() {
     const el = $('#fs-hint'); if (!el) return;
     let off = false; try { off = !!localStorage.getItem('tradewaters-fs-ok'); } catch (e) {}
     const show = touch && sideways && sideways.matches && !installed() && !document.fullscreenElement && !off
-      && !!document.documentElement.dataset.scene && window.scrollY < 4;
+      && !!document.documentElement.dataset.scene && (iOS || document.fullscreenEnabled);
     if (show) el.querySelector('span').innerHTML = iOS
-      ? 'Swipe up to hide Safari\u2019s bars. For full screen: Share \u2192 <b>Add to Home Screen</b>.'
-      : `Swipe up to hide the browser bar${document.fullscreenEnabled ? ', or \u2630 \u2192 <b>Full screen</b>' : ''}.`;
+      ? 'For full screen, tap Share \u2192 <b>Add to Home Screen</b> and play from the icon.'
+      : 'For full screen, tap \u2630 \u2192 <b>Full screen</b>.';
     el.hidden = !show;
   }
-  ['scroll', 'resize', 'orientationchange'].forEach(ev => window.addEventListener(ev, fsHint, { passive: true }));
+  ['resize', 'orientationchange'].forEach(ev => window.addEventListener(ev, fsHint, { passive: true }));
   document.addEventListener('fullscreenchange', fsHint);
 
   // Tag <html> while the wharf, chart or a battle is showing, so a phone held upright can be
